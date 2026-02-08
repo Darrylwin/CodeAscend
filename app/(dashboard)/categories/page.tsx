@@ -2,7 +2,7 @@
 
 //import node module libraries
 import { Fragment, useState, useEffect, useCallback } from "react";
-import { Alert } from "react-bootstrap";
+import { Alert, Spinner } from "react-bootstrap";
 //import custom components
 import ProductListing from "components/ecommerce/ProductListing";
 import EcommerceHeader from "components/ecommerce/EcommerceHeader";
@@ -152,11 +152,17 @@ const Categories = () => {
     <Fragment>
       <EcommerceHeader onAddClick={handleAddClick} />
       {error && <Alert variant="danger">{error}</Alert>}
-      <ProductListing
-        data={data}
-        onEdit={handleEditClick}
-        onDelete={handleDelete}
-      />
+      {isLoading ? (
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "200px" }}>
+          <Spinner animation="border" variant="primary" />
+        </div>
+      ) : (
+        <ProductListing
+          data={data}
+          onEdit={handleEditClick}
+          onDelete={handleDelete}
+        />
+      )}
       <CategoryModal
         show={showModal}
         onHide={() => setShowModal(false)}

@@ -1,15 +1,12 @@
 //import node modules libraries
 import React, { useEffect, useState } from "react";
-import { Dropdown, Image } from "react-bootstrap";
+import { Dropdown } from "react-bootstrap";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconLogin2 } from "@tabler/icons-react";
+import { IconLogin2, IconUser } from "@tabler/icons-react";
 
 //import routes files
 import { UserMenuItem } from "routes/HeaderRoute";
-
-//import custom components
-import { Avatar } from "components/common/Avatar";
 
 interface UserToggleProps {
   children?: React.ReactNode;
@@ -96,21 +93,15 @@ const UserMenu = () => {
   return (
     <Dropdown>
       <Dropdown.Toggle as={CustomToggle}>
-        <Avatar
-          type="image"
-          src="/images/avatar/avatar-1.jpg"
-          size="sm"
-          alt="User Avatar"
-          className="rounded-circle"
-        />
+        <div className="rounded-circle border d-flex justify-content-center align-items-center" style={{ width: '40px', height: '40px' }}>
+          <IconUser size={20} className="text-secondary" />
+        </div>
       </Dropdown.Toggle>
       <Dropdown.Menu align="end" className="p-0 dropdown-menu-md">
         <div className="d-flex gap-3 align-items-center border-dashed border-bottom px-4 py-4">
-          <Image
-            src="/images/avatar/avatar-1.jpg"
-            alt=""
-            className="avatar avatar-md rounded-circle"
-          />
+          <div className="rounded-circle border d-flex justify-content-center align-items-center bg-light" style={{ width: '50px', height: '50px' }}>
+            <IconUser size={24} className="text-secondary" />
+          </div>
           <div>
             <h4 className="mb-0 fs-5">{user?.name || "User"}</h4>
             <p className="mb-0 text-secondary small">{user?.email || ""}</p>
