@@ -62,9 +62,20 @@ def get_user_attempts_alias(db: Session = Depends(get_db), current_user: User = 
     result = []
     for attempt in attempts:
         quiz = db.query(Quiz).filter(Quiz.id == attempt.quiz_id).first()
+        category_name = None
+        level = None
+        if quiz:
+            level = quiz.level
+            if quiz.category_id:
+                category = db.query(Category).filter(Category.id == quiz.category_id).first()
+                category_name = category.name if category else None
+
         result.append({
             "id": attempt.id,
+            "quiz_id": attempt.quiz_id,
             "quiz_title": quiz.title if quiz else "Unknown Quiz",
+            "category_name": category_name,
+            "level": level,
             "score": attempt.score,
             "passed": attempt.passed,
             "completed_at": attempt.completed_at

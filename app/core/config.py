@@ -8,7 +8,8 @@ class Settings(BaseSettings):
     # JWT
     secret_key: str = "your-secret-key-here"
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
+    # Durée de vie de l'access token en minutes (15 jours)
+    access_token_expire_minutes: int = 15 * 24 * 60  # 21600 minutes
     
     # App
     app_name: str = "Quiz Programming API"

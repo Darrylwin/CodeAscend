@@ -50,8 +50,9 @@ def login(user: UserLogin, response: Response, db: Session = Depends(get_db)):
         key="access_token",
         value=access_token,
         httponly=True,
-        max_age=1800,  # 30 minutes
-        expires=1800,
+        # 15 days in seconds
+        max_age=1296000,
+        expires=1296000,
         secure=False,  # False pour développement HTTP
         samesite=None  # None pour permettre cross-origin en développement
     )
