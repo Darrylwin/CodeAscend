@@ -27,7 +27,7 @@ if __name__ == '__main__':
     print(f"🚀 Serveur de test démarré sur http://localhost:{PORT}")
     print(f"📁 Sert les fichiers depuis: {DIRECTORY}")
     print("💡 Ouvrez http://localhost:8080 dans votre navigateur")
-    print("💡 Assurez-vous que l'API tourne sur http://127.0.0.1:8000")
+    print("💡 L'API est déployée sur https://backend-quiz-0ab2.onrender.com")
 
     with socketserver.TCPServer(("", PORT), Handler) as httpd:
         try:

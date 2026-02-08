@@ -1,5 +1,5 @@
 // QuizMaster Pro - JavaScript Application
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = 'https://backend-quiz-0ab2.onrender.com';
 
 // État global de l'application
 let currentUser = null;
@@ -197,6 +197,9 @@ async function startQuiz(quiz) {
         
         displayCurrentQuestion();
         log('✅ Quiz démarré', 'success');
+        // show save button
+        document.getElementById('save-progress-btn').style.display = 'inline-block';
+        document.getElementById('resume-last-btn').style.display = 'none';
     } catch (error) {
         alert(`❌ Erreur lors du démarrage du quiz: ${error.message}`);
     }
@@ -256,6 +259,104 @@ function displayCurrentQuestion() {
     });
     
     document.getElementById('validate-answer-btn').onclick = validateCurrentAnswer;
+}
+
+// Save progress (partial answers)
+async function saveProgress() {
+    if (!currentAttempt || !currentAttempt.id) {
+        alert('Aucune tentative active à sauvegarder');
+        return;
+    }
+
+    // include current selected answers even if not validated
+    const currentQuestion = quizQuestions[currentQuestionIndex];
+    const currentSelected = Array.from(document.querySelectorAll('#answers-container input:checked')).map(i => i.value);
+
+    // Build payload from userAnswers + currentSelected for current question
+    const answersMap = {};
+    userAnswers.forEach(a => { answersMap[a.question_id] = a.answer_ids; });
+    if (currentSelected.length > 0) {
+        answersMap[currentQuestion.id] = currentSelected;
+    }
+
+    const payload = { answers: Object.keys(answersMap).map(qid => ({ question_id: qid, answer_ids: answersMap[qid] })) };
+
+    try {
+        await apiCall(`/attempts/save/${currentAttempt.id}`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        alert('✅ Progression sauvegardée');
+    } catch (err) {
+        alert(`❌ Erreur sauvegarde: ${err.message}`);
+    }
+}
+
+// Resume a specific quiz attempt by quiz id
+async function resumeAttemptByQuizId(quizId) {
+    try {
+        const result = await apiCall(`/attempts/resume/${quizId}`);
+        // result contains attempt_id, quiz, questions (with user_selected flags)
+        currentAttempt = { id: result.attempt_id };
+        currentQuiz = result.quiz;
+        quizQuestions = result.questions;
+        // build userAnswers from questions which have user_selected
+        userAnswers = [];
+        quizQuestions.forEach(q => {
+            const selected = q.answers.filter(a => a.user_selected).map(a => a.id);
+            if (selected.length) userAnswers.push({ question_id: q.id, answer_ids: selected });
+        });
+
+        // find first unanswered question index
+        const firstUnanswered = quizQuestions.findIndex(q => !q.answers.some(a => a.user_selected));
+        currentQuestionIndex = firstUnanswered === -1 ? 0 : firstUnanswered;
+
+        showSection('quiz-section');
+        document.getElementById('quiz-info').style.display = 'none';
+        document.getElementById('quiz-progress').style.display = 'block';
+        document.getElementById('quiz-results').style.display = 'none';
+        document.getElementById('save-progress-btn').style.display = 'inline-block';
+        displayCurrentQuestion();
+        log('↩️ Tentative reprise', 'success');
+    } catch (err) {
+        alert(`❌ Erreur reprise: ${err.message}`);
+    }
+}
+
+// List in-progress attempts
+async function loadInProgressAttempts() {
+    try {
+        const result = await apiCall('/attempts/in-progress');
+        displayInProgressAttempts(result.data);
+    } catch (err) {
+        document.getElementById('attempts-list').innerHTML = `<p style="color: #fc8181;">❌ Erreur: ${err.message}</p>`;
+    }
+}
+
+function displayInProgressAttempts(attempts) {
+    const container = document.getElementById('attempts-list');
+    container.innerHTML = '';
+    if (!attempts || attempts.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#718096; padding:40px;">Aucune tentative en cours</p>';
+        return;
+    }
+
+    attempts.forEach((attempt, index) => {
+        const card = document.createElement('div');
+        card.className = 'attempt-card';
+        card.style.animationDelay = `${index * 0.1}s`;
+        card.innerHTML = `
+            <h4 style="font-size:18px; margin-bottom:10px; color:#2d3748;">${attempt.quiz_title || attempt.quiz_id}</h4>
+            <p style="color:#718096; margin-bottom:8px;">Tentative en cours</p>
+            <small style="color:#a0aec0;">Attempt ID: ${attempt.attempt_id}</small>
+            <div style="margin-top:10px;"></div>
+        `;
+        const btn = document.createElement('button');
+        btn.textContent = '↩️ Reprendre';
+        btn.onclick = () => resumeAttemptByQuizId(attempt.quiz_id);
+        card.appendChild(btn);
+        container.appendChild(card);
+    });
 }
 
 // Quiz - Validation de la réponse actuelle
@@ -554,6 +655,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Tentatives
     document.getElementById('load-attempts-btn').onclick = loadUserAttempts;
+    document.getElementById('load-inprogress-btn').onclick = loadInProgressAttempts;
+
+    document.getElementById('save-progress-btn').onclick = saveProgress;
+    document.getElementById('resume-last-btn').onclick = async () => {
+        // try to resume last in-progress attempt for current quiz (if any)
+        if (!currentQuiz) {
+            alert('Aucun quiz sélectionné');
+            return;
+        }
+        await resumeAttemptByQuizId(currentQuiz.id);
+    };
     
     // Admin
     document.getElementById('load-admin-stats-btn').onclick = loadAdminStats;

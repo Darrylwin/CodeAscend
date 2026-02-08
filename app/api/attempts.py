@@ -7,6 +7,16 @@ from app.schemas import QuizStartResponse, QuizSubmit, QuizResult
 from app.services.auth import get_current_user
 import uuid
 from datetime import datetime
+from pydantic import BaseModel
+
+
+class AnswerSubmit(BaseModel):
+    question_id: str
+    answer_ids: list[str]
+
+
+class SaveProgress(BaseModel):
+    answers: list[AnswerSubmit]
 
 router = APIRouter()
 
@@ -53,6 +63,87 @@ def start_quiz(quiz_id: str, db: Session = Depends(get_db), current_user: User =
         "quiz": quiz_data,
         "questions": questions
     }
+
+
+@router.get("/resume/{quiz_id}")
+def resume_quiz(quiz_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Renvoie la tentative en cours pour le quiz avec les réponses partielles (user_selected).
+
+    Si aucune tentative en cours n'existe, renvoie 404.
+    """
+    # Trouver la tentative en cours
+    attempt = db.query(UserQuizAttempt).filter(
+        UserQuizAttempt.user_id == current_user.id,
+        UserQuizAttempt.quiz_id == quiz_id,
+        UserQuizAttempt.completed_at == None
+    ).first()
+
+    if not attempt:
+        raise HTTPException(status_code=404, detail="No in-progress attempt found")
+
+    # Récupérer le quiz et ses questions
+    quiz = db.query(Quiz).filter(Quiz.id == attempt.quiz_id).first()
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    questions = db.query(Question).filter(Question.quiz_id == attempt.quiz_id).order_by(Question.order).all()
+
+    # Récupérer toutes les réponses de l'utilisateur pour cette tentative
+    user_answers = db.query(UserAnswer).filter(UserAnswer.attempt_id == attempt.id).all()
+    user_answers_map = {}
+    for ua in user_answers:
+        user_answers_map.setdefault(ua.question_id, set()).add(ua.answer_id)
+
+    # Construire la réponse en marquant user_selected
+    questions_with_answers = []
+    for question in questions:
+        all_answers = db.query(Answer).filter(Answer.question_id == question.id).order_by(Answer.order).all()
+        q_user_selected = user_answers_map.get(question.id, set())
+
+        questions_with_answers.append({
+            "id": question.id,
+            "question_text": question.question_text,
+            "order": question.order,
+            "answers": [
+                {
+                    "id": answer.id,
+                    "answer_text": answer.answer_text,
+                    "is_correct": False,  # ne pas révéler les bonnes réponses
+                    "order": answer.order,
+                    "user_selected": answer.id in q_user_selected
+                }
+                for answer in all_answers
+            ]
+        })
+
+    return {
+        "attempt_id": attempt.id,
+        "quiz": quiz,
+        "questions": questions_with_answers
+    }
+
+
+@router.get("/in-progress")
+def list_in_progress_attempts(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Liste les tentatives non terminées de l'utilisateur connecté."""
+    attempts = db.query(UserQuizAttempt).filter(
+        UserQuizAttempt.user_id == current_user.id,
+        UserQuizAttempt.completed_at == None
+    ).all()
+
+    result = []
+    for attempt in attempts:
+        quiz = db.query(Quiz).filter(Quiz.id == attempt.quiz_id).first()
+        result.append({
+            "attempt_id": attempt.id,
+            "quiz_id": attempt.quiz_id,
+            "quiz_title": quiz.title if quiz else None,
+            "score": attempt.score,
+            "passed": attempt.passed,
+            "completed_at": attempt.completed_at,
+        })
+
+    return {"data": result}
 
 @router.post("/submit/{attempt_id}", response_model=QuizResult)
 def submit_quiz(attempt_id: str, submission: QuizSubmit, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -133,6 +224,60 @@ def submit_quiz(attempt_id: str, submission: QuizSubmit, db: Session = Depends(g
         "total_questions": total_questions,
         "details": details
     }
+
+
+@router.post("/save/{attempt_id}")
+def save_attempt_progress(attempt_id: str, submission: SaveProgress, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Sauvegarde partielle des réponses d'une tentative (permet de reprendre plus tard).
+
+    Le corps attend : { answers: [{ question_id: str, answer_ids: [str] }, ...] }
+    """
+    # Vérifier que la tentative appartient à l'utilisateur et n'est pas terminée
+    attempt = db.query(UserQuizAttempt).filter(
+        UserQuizAttempt.id == attempt_id,
+        UserQuizAttempt.user_id == current_user.id
+    ).first()
+
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+
+    if attempt.completed_at is not None:
+        raise HTTPException(status_code=400, detail="Attempt already completed")
+
+    for answer_submit in submission.answers:
+        question = db.query(Question).filter(Question.id == answer_submit.question_id).first()
+        if not question or question.quiz_id != attempt.quiz_id:
+            # ignorer les réponses invalides
+            continue
+
+        # Supprimer éventuelles réponses précédentes pour cette question/attempt
+        db.query(UserAnswer).filter(
+            UserAnswer.attempt_id == attempt_id,
+            UserAnswer.question_id == question.id
+        ).delete()
+
+        # Récupérer les bonnes réponses pour cette question
+        correct_answer_ids = db.query(Answer.id).filter(
+            Answer.question_id == question.id,
+            Answer.is_correct == True
+        ).all()
+        correct_answer_ids = [aid[0] for aid in correct_answer_ids]
+
+        user_correct = set(answer_submit.answer_ids) == set(correct_answer_ids)
+
+        for aid in answer_submit.answer_ids:
+            user_answer = UserAnswer(
+                id=str(uuid.uuid4()),
+                attempt_id=attempt_id,
+                question_id=question.id,
+                answer_id=aid,
+                is_correct=user_correct
+            )
+            db.add(user_answer)
+
+    db.commit()
+
+    return {"message": "Progress saved"}
 
 @router.get("/progress", response_model=List[dict])
 def get_user_progress(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

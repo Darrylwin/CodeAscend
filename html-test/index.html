@@ -89,13 +89,20 @@
                 <p style="text-align: center; color: #718096; font-weight: 600; margin-top: 10px;" id="progress-text">Question 1 sur 10</p>
             </div>
             <div id="quiz-questions" style="display: none;"></div>
+            <div style="display:flex; gap:12px; margin-top:12px;">
+                <button id="save-progress-btn" style="display:none;">💾 Sauvegarder et reprendre plus tard</button>
+                <button id="resume-last-btn" style="display:none;">↩️ Reprendre dernière tentative</button>
+            </div>
             <div id="quiz-results" style="display: none;"></div>
         </section>
 
         <!-- Section Tentatives -->
         <section id="attempts-section" class="section">
             <h2>📊 Mes Tentatives</h2>
-            <button id="load-attempts-btn">Charger mes tentatives</button>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button id="load-attempts-btn">Charger mes tentatives</button>
+                <button id="load-inprogress-btn">Charger tentatives en cours</button>
+            </div>
             <div id="attempts-list"></div>
 
             <div id="attempt-detail" style="display: none;">
