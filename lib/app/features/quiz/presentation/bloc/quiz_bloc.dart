@@ -16,8 +16,6 @@ import 'quiz_state.dart';
 
 /// Bloc qui gère le déroulé d'un quiz (chargement, réponses, sauvegarde locale, soumission)
 class QuizBloc extends Bloc<QuizEvent, QuizState> {
-  final GetQuizByIdUseCase _getQuizById;
-  final StartQuizUseCase _startQuiz;
   final SubmitQuizUseCase _submitQuiz;
   final FlushPendingSubmissionsUseCase _flushPending;
   final QuizLocalDataSource _local;
@@ -30,9 +28,7 @@ class QuizBloc extends Bloc<QuizEvent, QuizState> {
     required FlushPendingSubmissionsUseCase flushPendingUseCase,
     required QuizLocalDataSource localDataSource,
     required QuizRemoteDataSource remoteDataSource,
-  })  : _getQuizById = getQuizByIdUseCase,
-        _startQuiz = startQuizUseCase,
-        _submitQuiz = submitQuizUseCase,
+  })  : _submitQuiz = submitQuizUseCase,
         _flushPending = flushPendingUseCase,
         _local = localDataSource,
         _remote = remoteDataSource,
