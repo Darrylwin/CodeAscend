@@ -26,9 +26,6 @@ class CategoryBloc extends Bloc<CategoryEvent, CategoryState> {
         super(const CategoryInitial()) {
     on<FetchCategories>(_onFetchCategories);
     on<FetchCategoryById>(_onFetchCategoryById);
-    
-    // Charger les catégories au démarrage du bloc
-    add(const FetchCategories(isActive: true));
   }
 
   /// Handler: Récupère la liste des catégories

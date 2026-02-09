@@ -12,7 +12,6 @@ import '../bloc/category_state.dart';
 import '../widgets/category_card.dart';
 import '../../domain/entities/category_entity.dart';
 
-/// Homepage = liste des catégories (utilisée comme Home de l'app mobile)
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -21,27 +20,19 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late CategoryBloc _bloc;
-
   @override
   void initState() {
     super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final categoryBloc = BlocProvider.of<CategoryBloc>(context);
-
-      if (categoryBloc.state is CategoryInitial) {
-        debugPrint('🔄 HomePage: Chargement initial des catégories...');
-        categoryBloc.add(const FetchCategories(isActive: true));
-      } else {
-        debugPrint('✅ HomePage: Catégories déjà en cache');
-      }
-    });
   }
 
   Future<void> _refresh() async {
     debugPrint('🔄 HomePage: Refresh manuel des catégories...');
-    _bloc.add(const FetchCategories(isActive: true));
+    context.read<CategoryBloc>().add(
+          const FetchCategories(isActive: true, forceRefresh: true),
+        );
+
+    // Attendre que le refresh soit terminé
+    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   @override

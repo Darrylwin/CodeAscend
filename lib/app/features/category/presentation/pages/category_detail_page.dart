@@ -32,19 +32,25 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
   @override
   void initState() {
     super.initState();
-
-    // Attendre que le build soit complet avant de charger les données
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_initialized) {
-        _loadData();
-        _initialized = true;
-      }
-    });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    // Charger si pas déjà chargé
+    if (!_initialized) {
+      final categoryBloc = context.read<CategoryBloc>();
+      final categoryState = categoryBloc.state;
+
+      // Charger seulement si pas déjà dans le bon état
+      if (categoryState is! CategoryLoaded ||
+          (categoryState).category.id != widget.categoryId) {
+        _loadData();
+      }
+      _initialized = true;
+    }
+
     final modalRoute = ModalRoute.of(context);
     if (modalRoute is PageRoute) {
       routeObserver.subscribe(this, modalRoute);

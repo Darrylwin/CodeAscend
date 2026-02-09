@@ -147,13 +147,15 @@ class AppRouter {
                           BlocProvider(
                             create: (_) {
                               final bloc = sl<CategoryBloc>();
-                              // Ajouter l'événement après un court délai
-                              Future.delayed(Duration.zero, () {
-                                if (!bloc.isClosed) {
-                                  bloc.add(
-                                      const FetchCategories(isActive: true));
-                                }
-                              });
+                              // Charger si le state est Initial
+                              if (bloc.state is CategoryInitial) {
+                                Future.delayed(Duration.zero, () {
+                                  if (!bloc.isClosed) {
+                                    bloc.add(
+                                        const FetchCategories(isActive: true));
+                                  }
+                                });
+                              }
                               return bloc;
                             },
                           ),
