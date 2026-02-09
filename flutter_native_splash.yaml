@@ -1,0 +1,28 @@
+flutter_native_splash:
+  # Couleur de fond (beige)
+  color: "#F5EDE2"
+  
+  # Image du logo
+  image: assets/logo.png
+  
+  # Mode clair
+  color_dark: "#F5EDE2"
+  image_dark: assets/logo.png
+  
+  # Android 12+
+  android_12:
+    image: assets/logo.png
+    color: "#F5EDE2"
+    
+  # iOS
+  ios: true
+  
+  # Web
+  web: false
+  
+  # Garder le splash visible jusqu'à ce que Flutter soit prêt
+  android_gravity: center
+  ios_content_mode: center
+  
+  # Taille de l'image
+  fullscreen: false
