@@ -28,32 +28,32 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
     with RouteAware {
   bool _returningFromQuiz = false;
   bool _initialized = false;
+  bool _isSubscribed = false;
 
   @override
   void initState() {
     super.initState();
+
+    // Charger les données immédiatement dans initState
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_initialized) {
+        _loadData();
+        _initialized = true;
+      }
+    });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Charger si pas déjà chargé
-    if (!_initialized) {
-      final categoryBloc = context.read<CategoryBloc>();
-      final categoryState = categoryBloc.state;
-
-      // Charger seulement si pas déjà dans le bon état
-      if (categoryState is! CategoryLoaded ||
-          (categoryState).category.id != widget.categoryId) {
-        _loadData();
+    // Souscrire au RouteObserver une seule fois
+    if (!_isSubscribed) {
+      final modalRoute = ModalRoute.of(context);
+      if (modalRoute is PageRoute) {
+        routeObserver.subscribe(this, modalRoute);
+        _isSubscribed = true;
       }
-      _initialized = true;
-    }
-
-    final modalRoute = ModalRoute.of(context);
-    if (modalRoute is PageRoute) {
-      routeObserver.subscribe(this, modalRoute);
     }
   }
 
@@ -78,14 +78,28 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
 
   /// Force le rechargement (appelé après retour de quiz)
   void _loadData() {
+    debugPrint('📥 CategoryDetailPage: _loadData() appelé');
+
     final attemptsBloc = context.read<AttemptsBloc>();
     final categoryBloc = context.read<CategoryBloc>();
 
-    // Charger les attempts
-    attemptsBloc.add(const LoadAttempts());
+    // Charger les attempts si pas déjà chargés
+    if (attemptsBloc.state is! AttemptsLoaded) {
+      debugPrint('  → Chargement des attempts...');
+      attemptsBloc.add(const LoadAttempts());
+    } else {
+      debugPrint('  ✓ Attempts déjà chargés, skip');
+    }
 
-    // Charger la catégorie
-    categoryBloc.add(FetchCategoryById(widget.categoryId));
+    // Charger la catégorie si nécessaire
+    final categoryState = categoryBloc.state;
+    if (categoryState is! CategoryLoaded ||
+        categoryState.category.id != widget.categoryId) {
+      debugPrint('  → Chargement de la catégorie ${widget.categoryId}...');
+      categoryBloc.add(FetchCategoryById(widget.categoryId));
+    } else {
+      debugPrint('  ✓ Catégorie déjà chargée, skip');
+    }
   }
 
   /// Récupère les données de progression pour un niveau
