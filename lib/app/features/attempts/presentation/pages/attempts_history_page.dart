@@ -22,6 +22,7 @@ class AttemptsHistoryPage extends StatefulWidget {
 class _AttemptsHistoryPageState extends State<AttemptsHistoryPage> {
   final _searchController = TextEditingController();
   bool _showSearch = false;
+  bool _initialized = false;
 
   @override
   void dispose() {
@@ -33,12 +34,18 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage> {
   void initState() {
     super.initState();
 
-    // Charger les attempts automatiquement
+    // Charger les attempts une seule fois
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final attemptsBloc = context.read<AttemptsBloc>();
-      // Vérifier si les données sont déjà chargées
-      if (attemptsBloc.state is! AttemptsLoaded) {
-        attemptsBloc.add(const LoadAttempts());
+      if (!_initialized) {
+        final attemptsBloc = context.read<AttemptsBloc>();
+        // Vérifier si les données sont déjà chargées
+        if (attemptsBloc.state is! AttemptsLoaded) {
+          debugPrint('📥 AttemptsHistoryPage: Chargement des attempts...');
+          attemptsBloc.add(const LoadAttempts());
+        } else {
+          debugPrint('✓ AttemptsHistoryPage: Attempts déjà chargés, skip');
+        }
+        _initialized = true;
       }
     });
   }

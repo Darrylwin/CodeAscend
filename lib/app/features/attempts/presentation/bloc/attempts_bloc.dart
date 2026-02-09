@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/attempt_summary_entity.dart';
 import '../../domain/usecases/attempts_usecases.dart';
@@ -39,6 +40,19 @@ class AttemptsBloc extends Bloc<AttemptsEvent, AttemptsState> {
     LoadAttempts event,
     Emitter<AttemptsState> emit,
   ) async {
+    // Si déjà chargé, ne rien faire
+    if (state is AttemptsLoaded) {
+      debugPrint('⏭️  AttemptsBloc: Attempts déjà chargés, skip');
+      return;
+    }
+
+    // Si en cours de chargement, ne pas relancer
+    if (state is AttemptsLoading) {
+      debugPrint('⏭️  AttemptsBloc: Chargement déjà en cours, skip');
+      return;
+    }
+
+    debugPrint('📥 AttemptsBloc: Chargement des attempts...');
     emit(const AttemptsLoading());
 
     // 1. Récupérer les tentatives
@@ -83,6 +97,8 @@ class AttemptsBloc extends Bloc<AttemptsEvent, AttemptsState> {
     if (currentState is AttemptsLoaded) {
       emit(currentState.copyWith(isRefreshing: true));
     }
+
+    debugPrint('🔄 AttemptsBloc: Refresh des attempts...');
 
     // Recharger les données
     final attemptsResult = await _getUserAttemptsUseCase();
@@ -244,7 +260,6 @@ class AttemptsBloc extends Bloc<AttemptsEvent, AttemptsState> {
   // ==========================================================================
 
   /// Applique le filtre et la recherche
-
   List<AttemptSummaryEntity> _applyFiltersAndSearch(
     List<AttemptSummaryEntity> attempts,
     AttemptFilter filter,

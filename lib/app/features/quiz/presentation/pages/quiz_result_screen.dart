@@ -485,9 +485,13 @@ class _QuizResultScreenState extends State<QuizResultScreen>
             onPressed: () {
               context.pop();
             },
-            style: TextButton.styleFrom(
-              foregroundColor: colorScheme.onSurface,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: colorScheme.onPrimary,
               padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             child: const Text('Retour à la catégorie'),
           ),

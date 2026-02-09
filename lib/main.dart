@@ -33,31 +33,59 @@ class MyApp extends StatelessWidget {
         BlocProvider<AuthBloc>(create: (_) => sl<AuthBloc>()),
         BlocProvider<ThemeCubit>(create: (_) => sl<ThemeCubit>()),
       ],
-      child: BlocBuilder<ThemeCubit, ThemeMode>(
-        builder: (context, themeMode) {
-          return BlocBuilder<AuthBloc, AuthState>(
-            builder: (context, authState) {
-              final isAuthenticated = authState is Authenticated;
-              final navigatorKey = sl<GlobalKey<NavigatorState>>();
+      child: const _AppView(),
+    );
+  }
+}
 
-              final router = AppRouter.router(
-                isAuthenticated: isAuthenticated,
-                authState: authState,
-                navigatorKey: navigatorKey,
-              );
+/// Widget séparé pour gérer le router et le thème
+class _AppView extends StatefulWidget {
+  const _AppView();
 
-              return MaterialApp.router(
-                title: 'Code Ascend',
-                debugShowCheckedModeBanner: false,
-                theme: AppTheme.lightTheme,
-                darkTheme: AppTheme.darkTheme,
-                themeMode: themeMode,
-                routerConfig: router,
-              );
-            },
-          );
-        },
-      ),
+  @override
+  State<_AppView> createState() => _AppViewState();
+}
+
+class _AppViewState extends State<_AppView> {
+  late final GlobalKey<NavigatorState> _navigatorKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _navigatorKey = sl<GlobalKey<NavigatorState>>();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ThemeCubit, ThemeMode>(
+      builder: (context, themeMode) {
+        return BlocBuilder<AuthBloc, AuthState>(
+          buildWhen: (previous, current) {
+            // Reconstruire uniquement si l'état d'authentification change
+            final wasAuthenticated = previous is Authenticated;
+            final isAuthenticated = current is Authenticated;
+            return wasAuthenticated != isAuthenticated;
+          },
+          builder: (context, authState) {
+            final isAuthenticated = authState is Authenticated;
+
+            final router = AppRouter.router(
+              isAuthenticated: isAuthenticated,
+              authState: authState,
+              navigatorKey: _navigatorKey,
+            );
+
+            return MaterialApp.router(
+              title: 'Code Ascend',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: themeMode,
+              routerConfig: router,
+            );
+          },
+        );
+      },
     );
   }
 }
