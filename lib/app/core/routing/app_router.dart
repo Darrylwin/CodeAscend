@@ -333,9 +333,14 @@ class AppRouter {
               pageBuilder: (context, state) {
                 final quizId = state.pathParameters['id']!;
                 final attemptId = state.uri.queryParameters['attemptId'] ?? '';
+                final queryParams = state.uri.queryParameters;
                 return MaterialPage<void>(
                   key: state.pageKey,
-                  child: QuizResultScreen(quizId: quizId, attemptId: attemptId),
+                  child: QuizResultScreen(
+                    quizId: quizId,
+                    attemptId: attemptId,
+                    queryParams: queryParams,
+                  ),
                 );
               },
             ),
@@ -345,9 +350,14 @@ class AppRouter {
               pageBuilder: (context, state) {
                 final quizId = state.pathParameters['id']!;
                 final attemptId = state.uri.queryParameters['attemptId'] ?? '';
+                final queryParams = state.uri.queryParameters;
                 return MaterialPage<void>(
                   key: state.pageKey,
-                  child: QuizReviewScreen(quizId: quizId, attemptId: attemptId),
+                  child: QuizReviewScreen(
+                    quizId: quizId,
+                    attemptId: attemptId,
+                    queryParams: queryParams,
+                  ),
                 );
               },
             ),
@@ -359,12 +369,13 @@ class AppRouter {
           name: 'attemptReview',
           pageBuilder: (context, state) {
             final attemptId = state.pathParameters['attemptId']!;
-            final from = state.uri.queryParameters['from'];
-            final cameFromHistory = from == 'history';
+            final queryParams = state.uri.queryParameters;
             return MaterialPage<void>(
               key: state.pageKey,
               child: QuizReviewScreen(
-                  attemptId: attemptId, cameFromHistory: cameFromHistory),
+                attemptId: attemptId,
+                queryParams: queryParams,
+              ),
             );
           },
         ),

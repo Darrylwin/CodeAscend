@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/routing/app_router.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/themes/colors/app_color.dart';
@@ -13,13 +12,13 @@ import '../../domain/entities/question_entity.dart';
 class QuizReviewScreen extends StatefulWidget {
   final String? quizId;
   final String attemptId;
-  final bool cameFromHistory;
+  final Map<String, String> queryParams;
 
   const QuizReviewScreen({
     super.key,
     this.quizId,
     required this.attemptId,
-    this.cameFromHistory = false,
+    this.queryParams = const {},
   });
 
   @override
@@ -34,6 +33,8 @@ class _QuizReviewScreenState extends State<QuizReviewScreen> {
   List<QuestionEntity>? _questions;
   bool _isLoading = true;
   String? _errorMessage;
+
+  bool get cameFromHistory => widget.queryParams['from'] == 'history';
 
   @override
   void initState() {
@@ -162,13 +163,15 @@ class _QuizReviewScreenState extends State<QuizReviewScreen> {
               const SizedBox(height: 16),
               OutlinedButton(
                 onPressed: () {
-                  if (widget.cameFromHistory) {
-                    context.go(AppRouter.history);
+                  if (cameFromHistory) {
+                    context.go('/home');
                   } else {
                     context.pop();
                   }
                 },
-                child: const Text('Retour'),
+                child: Text(cameFromHistory
+                    ? 'Retour à l\'accueil'
+                    : 'Retour aux résultats'),
               ),
             ],
           ),
@@ -213,13 +216,15 @@ class _QuizReviewScreenState extends State<QuizReviewScreen> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
-                  if (widget.cameFromHistory) {
-                    context.go(AppRouter.history);
+                  if (cameFromHistory) {
+                    context.go('/home');
                   } else {
                     context.pop();
                   }
                 },
-                child: const Text('Retour'),
+                child: Text(cameFromHistory
+                    ? 'Retour à l\'accueil'
+                    : 'Retour aux résultats'),
               ),
             ],
           ),
@@ -459,7 +464,11 @@ class _QuizReviewScreenState extends State<QuizReviewScreen> {
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton(
               onPressed: () {
-                context.pop();
+                if (cameFromHistory) {
+                  context.go('/home');
+                } else {
+                  context.pop();
+                }
               },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -467,8 +476,8 @@ class _QuizReviewScreenState extends State<QuizReviewScreen> {
                 backgroundColor: primaryColor,
                 foregroundColor: colorScheme.onPrimary,
               ),
-              child: Text(widget.cameFromHistory
-                  ? 'Retour à l\'historique'
+              child: Text(cameFromHistory
+                  ? 'Retour à l\'accueil'
                   : 'Retour aux résultats'),
             ),
           ),

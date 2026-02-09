@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/utils/app_extensions.dart';
+import '../../../category/presentation/pages/category_detail_page.dart';
 import '../bloc/attempts_bloc.dart';
 import '../bloc/attempts_event.dart';
 import '../bloc/attempts_state.dart';
@@ -19,13 +20,15 @@ class AttemptsHistoryPage extends StatefulWidget {
   State<AttemptsHistoryPage> createState() => _AttemptsHistoryPageState();
 }
 
-class _AttemptsHistoryPageState extends State<AttemptsHistoryPage> {
+class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
+    with RouteAware {
   final _searchController = TextEditingController();
   bool _showSearch = false;
   bool _initialized = false;
 
   @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _searchController.dispose();
     super.dispose();
   }
@@ -34,13 +37,12 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage> {
   void initState() {
     super.initState();
 
-    // Charger les attempts une seule fois
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_initialized) {
         final attemptsBloc = context.read<AttemptsBloc>();
-        // Vérifier si les données sont déjà chargées
         if (attemptsBloc.state is! AttemptsLoaded) {
-          debugPrint('📥 AttemptsHistoryPage: Chargement des attempts...');
+          debugPrint(
+              '📥 AttemptsHistoryPage: Chargement initial des attempts...');
           attemptsBloc.add(const LoadAttempts());
         } else {
           debugPrint('✓ AttemptsHistoryPage: Attempts déjà chargés, skip');
@@ -48,6 +50,24 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage> {
         _initialized = true;
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final modalRoute = ModalRoute.of(context);
+    if (modalRoute is PageRoute) {
+      routeObserver.subscribe(this, modalRoute);
+    }
+    context.read<AttemptsBloc>().add(const RefreshAttempts()); // always refresh
+  }
+
+  @override
+  void didPopNext() {
+    debugPrint(
+        '🔄 AttemptsHistoryPage: Retour détecté, refresh des données...');
+    // Forcer le refresh des attempts
+    context.read<AttemptsBloc>().add(const RefreshAttempts());
   }
 
   void _toggleSearch() {
@@ -332,7 +352,6 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage> {
                       return AttemptCard(
                         attempt: attempt,
                         onTap: () {
-                          // Si quiz en cours, rediriger vers le quiz pour continuer
                           if (attempt.isInProgress) {
                             if (attempt.quizId.isEmpty) {
                               context.showErrorSnackBar(
@@ -340,12 +359,9 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage> {
                               );
                               return;
                             }
-
-                            // Naviguer vers le quiz avec restore=true
-                            context
-                                .push('/quiz/${attempt.quizId}?restore=true');
+                            context.push(
+                                '/quiz/${attempt.quizId}?restore=true&from=history');
                           } else {
-                            // Sinon, afficher la révision
                             context.push(
                                 '/attempt/${attempt.id}/review?from=history');
                           }

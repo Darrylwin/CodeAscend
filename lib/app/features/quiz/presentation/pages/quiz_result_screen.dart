@@ -12,11 +12,13 @@ import '../../../category/data/datasources/category_remote_data_source.dart';
 class QuizResultScreen extends StatefulWidget {
   final String quizId;
   final String attemptId;
+  final Map<String, String> queryParams;
 
   const QuizResultScreen({
     super.key,
     required this.quizId,
     required this.attemptId,
+    this.queryParams = const {},
   });
 
   @override
@@ -35,6 +37,8 @@ class _QuizResultScreenState extends State<QuizResultScreen>
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   bool _didPrecache = false;
+
+  bool get cameFromHistory => widget.queryParams['from'] == 'history';
 
   @override
   void initState() {
@@ -140,12 +144,14 @@ class _QuizResultScreenState extends State<QuizResultScreen>
   }
 
   void _retakeQuiz() {
-    context.pushReplacement('/quiz/${widget.quizId}');
+    final fromQuery = cameFromHistory ? '?from=history' : '';
+    context.pushReplacement('/quiz/${widget.quizId}$fromQuery');
   }
 
   void _startNextQuiz() {
     if (_nextQuizId != null) {
-      context.pushReplacement('/quiz/$_nextQuizId');
+      final fromQuery = cameFromHistory ? '?from=history' : '';
+      context.pushReplacement('/quiz/$_nextQuizId$fromQuery');
     }
   }
 
@@ -166,8 +172,10 @@ class _QuizResultScreenState extends State<QuizResultScreen>
 
     return WillPopScope(
       onWillPop: () async {
-        if (_quiz != null) {
-          context.pop();
+        if (cameFromHistory) {
+          context.go('/home');
+        } else if (_quiz != null) {
+          context.go('/category/${_quiz!.categoryId}');
         } else {
           context.go('/home');
         }
@@ -430,8 +438,9 @@ class _QuizResultScreenState extends State<QuizResultScreen>
             ],
             OutlinedButton.icon(
               onPressed: () {
+                final from = cameFromHistory ? '&from=history' : '';
                 context.push(
-                  '/quiz/${widget.quizId}/review?attemptId=${widget.attemptId}',
+                  '/quiz/${widget.quizId}/review?attemptId=${widget.attemptId}$from',
                 );
               },
               icon: const Icon(Icons.visibility),
@@ -462,8 +471,9 @@ class _QuizResultScreenState extends State<QuizResultScreen>
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () {
+                final from = cameFromHistory ? '&from=history' : '';
                 context.push(
-                  '/quiz/${widget.quizId}/review?attemptId=${widget.attemptId}',
+                  '/quiz/${widget.quizId}/review?attemptId=${widget.attemptId}$from',
                 );
               },
               icon: const Icon(Icons.visibility),
@@ -481,9 +491,16 @@ class _QuizResultScreenState extends State<QuizResultScreen>
 
           const SizedBox(height: 12),
 
-          TextButton(
+          // Bouton adapté selon la provenance
+          ElevatedButton(
             onPressed: () {
-              context.pop();
+              if (cameFromHistory) {
+                context.go('/home');
+              } else if (_quiz != null) {
+                context.go('/category/${_quiz!.categoryId}');
+              } else {
+                context.go('/home');
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor,
@@ -493,7 +510,9 @@ class _QuizResultScreenState extends State<QuizResultScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text('Retour à la catégorie'),
+            child: Text(
+              cameFromHistory ? 'Retour à l\'accueil' : 'Retour à la catégorie',
+            ),
           ),
         ],
       ),
