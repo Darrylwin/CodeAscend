@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/utils/app_extensions.dart';
-import '../../../category/presentation/pages/category_detail_page.dart';
+import '../../../../core/utils/route_observer.dart';
 import '../bloc/attempts_bloc.dart';
 import '../bloc/attempts_event.dart';
 import '../bloc/attempts_state.dart';
@@ -12,7 +12,6 @@ import '../widgets/attempt_card.dart';
 import '../widgets/statistics_summary.dart';
 import '../widgets/filter_chips.dart';
 
-/// Page d'historique des tentatives de quiz
 class AttemptsHistoryPage extends StatefulWidget {
   const AttemptsHistoryPage({super.key});
 
@@ -25,6 +24,33 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
   final _searchController = TextEditingController();
   bool _showSearch = false;
   bool _initialized = false;
+  bool _isSubscribed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Un seul point d'entrée : refresh à chaque ouverture de la page
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_initialized && mounted) {
+        _initialized = true;
+        debugPrint('📥 AttemptsHistoryPage: refresh initial');
+        context.read<AttemptsBloc>().add(const RefreshAttempts());
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Souscription RouteObserver uniquement — pas de chargement ici
+    if (!_isSubscribed) {
+      final modalRoute = ModalRoute.of(context);
+      if (modalRoute is PageRoute) {
+        routeObserver.subscribe(this, modalRoute);
+        _isSubscribed = true;
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -34,39 +60,9 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
   }
 
   @override
-  void initState() {
-    super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_initialized) {
-        final attemptsBloc = context.read<AttemptsBloc>();
-        if (attemptsBloc.state is! AttemptsLoaded) {
-          debugPrint(
-              '📥 AttemptsHistoryPage: Chargement initial des attempts...');
-          attemptsBloc.add(const LoadAttempts());
-        } else {
-          debugPrint('✓ AttemptsHistoryPage: Attempts déjà chargés, skip');
-        }
-        _initialized = true;
-      }
-    });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final modalRoute = ModalRoute.of(context);
-    if (modalRoute is PageRoute) {
-      routeObserver.subscribe(this, modalRoute);
-    }
-    context.read<AttemptsBloc>().add(const RefreshAttempts()); // always refresh
-  }
-
-  @override
   void didPopNext() {
-    debugPrint(
-        '🔄 AttemptsHistoryPage: Retour détecté, refresh des données...');
-    // Forcer le refresh des attempts
+    // Retour depuis une sous-page (ex: quiz review) → refresh
+    debugPrint('🔄 AttemptsHistoryPage: retour détecté, refresh');
     context.read<AttemptsBloc>().add(const RefreshAttempts());
   }
 
@@ -83,12 +79,10 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
   void _showSortMenu() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final surfaceColor = theme.cardColor;
-    final onSurfaceColor = colorScheme.onSurface;
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: surfaceColor,
+      backgroundColor: theme.cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -107,43 +101,36 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
                       color: colorScheme.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(
-                      Icons.sort,
-                      color: colorScheme.primary,
-                      size: 20,
-                    ),
+                    child:
+                        Icon(Icons.sort, color: colorScheme.primary, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     'Trier par',
                     style: context.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: onSurfaceColor,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 20),
               _buildSortOption(
-                icon: Icons.calendar_today,
-                title: 'Date (Plus récent)',
-                sort: AttemptSort.dateDesc,
-              ),
+                  icon: Icons.calendar_today,
+                  title: 'Date (Plus récent)',
+                  sort: AttemptSort.dateDesc),
               _buildSortOption(
-                icon: Icons.calendar_today_outlined,
-                title: 'Date (Plus ancien)',
-                sort: AttemptSort.dateAsc,
-              ),
+                  icon: Icons.calendar_today_outlined,
+                  title: 'Date (Plus ancien)',
+                  sort: AttemptSort.dateAsc),
               _buildSortOption(
-                icon: Icons.trending_up,
-                title: 'Score (Plus élevé)',
-                sort: AttemptSort.scoreDesc,
-              ),
+                  icon: Icons.trending_up,
+                  title: 'Score (Plus élevé)',
+                  sort: AttemptSort.scoreDesc),
               _buildSortOption(
-                icon: Icons.trending_down,
-                title: 'Score (Plus faible)',
-                sort: AttemptSort.scoreAsc,
-              ),
+                  icon: Icons.trending_down,
+                  title: 'Score (Plus faible)',
+                  sort: AttemptSort.scoreAsc),
               const SizedBox(height: 8),
             ],
           ),
@@ -157,10 +144,7 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
     required String title,
     required AttemptSort sort,
   }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final onSurfaceColor = colorScheme.onSurface;
-
+    final colorScheme = Theme.of(context).colorScheme;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       leading: Container(
@@ -171,13 +155,9 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
         ),
         child: Icon(icon, color: colorScheme.primary, size: 20),
       ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w500,
-          color: onSurfaceColor,
-        ),
-      ),
+      title: Text(title,
+          style: TextStyle(
+              fontWeight: FontWeight.w500, color: colorScheme.onSurface)),
       onTap: () {
         context.read<AttemptsBloc>().add(SortAttempts(sort));
         Navigator.pop(context);
@@ -187,14 +167,12 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final primaryColor = colorScheme.primary;
     final onPrimaryColor = colorScheme.onPrimary;
-    final backgroundColor = colorScheme.background;
 
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         title: _showSearch
             ? TextField(
@@ -238,15 +216,12 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
               ),
             );
           }
-
           if (state is AttemptsError) {
             return _buildErrorState(state.message);
           }
-
           if (state is AttemptsLoaded) {
             return _buildLoadedState(state);
           }
-
           return const SizedBox.shrink();
         },
       ),
@@ -254,12 +229,7 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
   }
 
   Widget _buildErrorState(String message) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final errorColor = colorScheme.error;
-    final onSurfaceColor = colorScheme.onSurface;
-    final onSurfaceVariant = colorScheme.onSurface.withOpacity(0.7);
-
+    final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -269,42 +239,30 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: errorColor.withOpacity(0.1),
+                color: colorScheme.error.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.error_outline,
-                size: 64,
-                color: errorColor,
-              ),
+              child:
+                  Icon(Icons.error_outline, size: 64, color: colorScheme.error),
             ),
             const SizedBox(height: 24),
-            Text(
-              'Erreur',
-              style: context.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: onSurfaceColor,
-              ),
-            ),
+            Text('Erreur',
+                style: context.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
             const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: context.textTheme.bodyMedium?.copyWith(
-                color: onSurfaceVariant,
-              ),
-            ),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: context.textTheme.bodyMedium
+                    ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7))),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () {
-                context.read<AttemptsBloc>().add(const LoadAttempts());
-              },
+              onPressed: () =>
+                  context.read<AttemptsBloc>().add(const RefreshAttempts()),
               icon: const Icon(Icons.refresh),
               label: const Text('Réessayer'),
               style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
             ),
           ],
         ),
@@ -313,13 +271,9 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
   }
 
   Widget _buildLoadedState(AttemptsLoaded state) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final primaryColor = colorScheme.primary;
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
-    if (state.hasNoAttempts) {
-      return _buildEmptyState();
-    }
+    if (state.hasNoAttempts) return _buildEmptyState();
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -329,18 +283,12 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
       color: primaryColor,
       child: Column(
         children: [
-          // Statistiques summary
           StatisticsSummary(statistics: state.statistics),
-
-          // Filtres
           FilterChips(
             currentFilter: state.currentFilter,
-            onFilterChanged: (filter) {
-              context.read<AttemptsBloc>().add(FilterAttempts(filter));
-            },
+            onFilterChanged: (filter) =>
+                context.read<AttemptsBloc>().add(FilterAttempts(filter)),
           ),
-
-          // Liste des tentatives
           Expanded(
             child: state.isEmpty
                 ? _buildNoResultsState()
@@ -355,8 +303,7 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
                           if (attempt.isInProgress) {
                             if (attempt.quizId.isEmpty) {
                               context.showErrorSnackBar(
-                                'Impossible de reprendre ce quiz. Données manquantes.',
-                              );
+                                  'Impossible de reprendre ce quiz. Données manquantes.');
                               return;
                             }
                             context.push(
@@ -376,13 +323,7 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
   }
 
   Widget _buildEmptyState() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final onSurfaceColor = colorScheme.onSurface;
-    final onSurfaceVariant = colorScheme.onSurface.withOpacity(0.7);
-    final surfaceVariant = colorScheme.surfaceVariant;
-    final onSurfaceVariantColor = colorScheme.onSurfaceVariant;
-
+    final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -392,42 +333,27 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: surfaceVariant,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                CupertinoIcons.question_circle,
-                size: 80,
-                color: onSurfaceVariantColor,
-              ),
+                  color: colorScheme.surfaceVariant, shape: BoxShape.circle),
+              child: Icon(CupertinoIcons.question_circle,
+                  size: 80, color: colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 24),
-            Text(
-              'Aucune tentative',
-              style: context.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: onSurfaceColor,
-              ),
-            ),
+            Text('Aucune tentative',
+                style: context.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
             const SizedBox(height: 8),
-            Text(
-              'Passez votre premier quiz pour voir votre historique ici',
-              textAlign: TextAlign.center,
-              style: context.textTheme.bodyMedium?.copyWith(
-                color: onSurfaceVariant,
-              ),
-            ),
+            Text('Passez votre premier quiz pour voir votre historique ici',
+                textAlign: TextAlign.center,
+                style: context.textTheme.bodyMedium
+                    ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7))),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () {
-                context.go('/home');
-              },
+              onPressed: () => context.go('/home'),
               icon: const Icon(Icons.home),
               label: const Text('Découvrir les quiz'),
               style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
             ),
           ],
         ),
@@ -436,13 +362,7 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
   }
 
   Widget _buildNoResultsState() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final onSurfaceColor = colorScheme.onSurface;
-    final onSurfaceVariant = colorScheme.onSurface.withOpacity(0.7);
-    final surfaceVariant = colorScheme.surfaceVariant;
-    final onSurfaceVariantColor = colorScheme.onSurfaceVariant;
-
+    final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -452,31 +372,19 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: surfaceVariant,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.search_off,
-                size: 64,
-                color: onSurfaceVariantColor,
-              ),
+                  color: colorScheme.surfaceVariant, shape: BoxShape.circle),
+              child: Icon(Icons.search_off,
+                  size: 64, color: colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
-            Text(
-              'Aucun résultat',
-              style: context.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: onSurfaceColor,
-              ),
-            ),
+            Text('Aucun résultat',
+                style: context.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
             const SizedBox(height: 8),
-            Text(
-              'Aucune tentative ne correspond à vos filtres',
-              textAlign: TextAlign.center,
-              style: context.textTheme.bodyMedium?.copyWith(
-                color: onSurfaceVariant,
-              ),
-            ),
+            Text('Aucune tentative ne correspond à vos filtres',
+                textAlign: TextAlign.center,
+                style: context.textTheme.bodyMedium
+                    ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7))),
             const SizedBox(height: 20),
             TextButton.icon(
               onPressed: () {
@@ -484,9 +392,7 @@ class _AttemptsHistoryPageState extends State<AttemptsHistoryPage>
                     .read<AttemptsBloc>()
                     .add(const FilterAttempts(AttemptFilter.all));
                 context.read<AttemptsBloc>().add(const ClearSearch());
-                if (_showSearch) {
-                  _toggleSearch();
-                }
+                if (_showSearch) _toggleSearch();
               },
               icon: const Icon(Icons.clear_all),
               label: const Text('Réinitialiser les filtres'),

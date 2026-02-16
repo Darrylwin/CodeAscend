@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/utils/app_extensions.dart';
+import '../../../../core/utils/route_observer.dart';
 import '../bloc/category_bloc.dart';
 import '../bloc/category_event.dart';
 import '../bloc/category_state.dart';
@@ -14,7 +15,6 @@ import '../../../attempts/presentation/bloc/attempts_event.dart';
 import '../../../attempts/presentation/bloc/attempts_state.dart';
 import '../widgets/level_progress_card.dart';
 
-/// Détail d'une catégorie avec indicateurs de progression améliorés
 class CategoryDetailPage extends StatefulWidget {
   final String categoryId;
 
@@ -26,19 +26,16 @@ class CategoryDetailPage extends StatefulWidget {
 
 class _CategoryDetailPageState extends State<CategoryDetailPage>
     with RouteAware {
-  bool _returningFromQuiz = false;
   bool _initialized = false;
   bool _isSubscribed = false;
 
   @override
   void initState() {
     super.initState();
-
-    // Charger les données immédiatement dans initState
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_initialized) {
-        _loadData();
+      if (!_initialized && mounted) {
         _initialized = true;
+        _loadData();
       }
     });
   }
@@ -46,8 +43,6 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    // Souscrire au RouteObserver une seule fois
     if (!_isSubscribed) {
       final modalRoute = ModalRoute.of(context);
       if (modalRoute is PageRoute) {
@@ -65,44 +60,35 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
 
   @override
   void didPopNext() {
-    // On revient sur cette page
-    if (_returningFromQuiz) {
-      debugPrint('🔄 CategoryDetailPage: Retour de quiz détecté, refresh...');
-      _loadData();
-      _returningFromQuiz = false;
-    } else {
-      debugPrint(
-          '✅ CategoryDetailPage: Retour détecté, pas de refresh nécessaire');
-    }
+    // Retour depuis quiz ou autre sous-page → toujours forcer le refresh
+    debugPrint('🔄 CategoryDetailPage: retour détecté, forceRefresh');
+    _loadData(forceRefresh: true);
   }
 
-  /// Force le rechargement (appelé après retour de quiz)
-  void _loadData() {
-    debugPrint('📥 CategoryDetailPage: _loadData() appelé');
+  void _loadData({bool forceRefresh = false}) {
+    debugPrint('📥 CategoryDetailPage: _loadData(force=$forceRefresh)');
 
     final attemptsBloc = context.read<AttemptsBloc>();
     final categoryBloc = context.read<CategoryBloc>();
 
-    // Charger les attempts si pas déjà chargés
-    if (attemptsBloc.state is! AttemptsLoaded) {
-      debugPrint('  → Chargement des attempts...');
+    // Toujours refresh les attempts si on force, sinon charger seulement si pas déjà là
+    if (forceRefresh) {
+      attemptsBloc.add(const RefreshAttempts());
+    } else if (attemptsBloc.state is! AttemptsLoaded) {
       attemptsBloc.add(const LoadAttempts());
-    } else {
-      debugPrint('  ✓ Attempts déjà chargés, skip');
     }
 
-    // Charger la catégorie si nécessaire
+    // Charger/recharger la catégorie
     final categoryState = categoryBloc.state;
-    if (categoryState is! CategoryLoaded ||
+    if (forceRefresh ||
+        categoryState is! CategoryLoaded ||
         categoryState.category.id != widget.categoryId) {
-      debugPrint('  → Chargement de la catégorie ${widget.categoryId}...');
-      categoryBloc.add(FetchCategoryById(widget.categoryId));
-    } else {
-      debugPrint('  ✓ Catégorie déjà chargée, skip');
+      categoryBloc.add(
+        FetchCategoryById(widget.categoryId, forceRefresh: forceRefresh),
+      );
     }
   }
 
-  /// Récupère les données de progression pour un niveau
   Map<String, dynamic> _getLevelProgress(
     CategoryEntity category,
     String level,
@@ -137,11 +123,11 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
       final firstQuiz = levelQuizzes.first;
       final levelQuizIds = levelQuizzes.map((q) => q.id).toSet();
 
+      // Chercher tentative en cours
       try {
         final inProgressAttempt = attemptsState.allAttempts.firstWhere(
           (a) => levelQuizIds.contains(a.quizId) && a.isInProgress,
         );
-
         return {
           'accessible': firstQuiz.isAccessible,
           'attempts': 0,
@@ -192,31 +178,25 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
     }
   }
 
-  /// Calcule la progression globale (0-100%)
   double _calculateOverallProgress(
     CategoryEntity category,
     List<QuizSummaryModel> quizzes,
     AttemptsLoaded attemptsState,
   ) {
-    final beginnerProgress =
-        _getLevelProgress(category, 'debutant', quizzes, attemptsState);
-    final intermediateProgress =
-        _getLevelProgress(category, 'intermediaire', quizzes, attemptsState);
-    final advancedProgress =
-        _getLevelProgress(category, 'avance', quizzes, attemptsState);
-
     int completed = 0;
-    if (beginnerProgress['passed'] == true) completed++;
-    if (intermediateProgress['passed'] == true) completed++;
-    if (advancedProgress['passed'] == true) completed++;
-
+    if (_getLevelProgress(
+            category, 'debutant', quizzes, attemptsState)['passed'] ==
+        true) completed++;
+    if (_getLevelProgress(
+            category, 'intermediaire', quizzes, attemptsState)['passed'] ==
+        true) completed++;
+    if (_getLevelProgress(
+            category, 'avance', quizzes, attemptsState)['passed'] ==
+        true) completed++;
     return (completed / 3) * 100;
   }
 
   void _navigateToQuiz(String quizId, bool restore) {
-    // Marquer qu'on va partir vers un quiz
-    _returningFromQuiz = true;
-
     if (restore) {
       context.push('/quiz/$quizId?restore=true');
     } else {
@@ -226,8 +206,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return WillPopScope(
       onWillPop: () async {
@@ -241,16 +220,14 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
           foregroundColor: colorScheme.onPrimary,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            tooltip: 'Retour',
             onPressed: () => context.go('/home'),
           ),
         ),
-        body: BlocConsumer<AttemptsBloc, AttemptsState>(
-          listener: (context, attemptsState) {},
+        body: BlocBuilder<AttemptsBloc, AttemptsState>(
           builder: (context, attemptsState) {
-            return BlocConsumer<CategoryBloc, CategoryState>(
-              listener: (context, categoryState) {},
+            return BlocBuilder<CategoryBloc, CategoryState>(
               builder: (context, categoryState) {
+                // Loading
                 if (categoryState is CategoryLoading ||
                     categoryState is CategoryInitial ||
                     attemptsState is AttemptsLoading ||
@@ -266,266 +243,19 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
                   );
                 }
 
+                // Erreurs
                 if (categoryState is CategoryError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.error_outline,
-                              size: 64, color: colorScheme.error),
-                          const SizedBox(height: 16),
-                          Text('Erreur',
-                              style: context.textTheme.headlineSmall),
-                          const SizedBox(height: 8),
-                          Text(categoryState.message,
-                              textAlign: TextAlign.center),
-                          const SizedBox(height: 24),
-                          ElevatedButton(
-                            onPressed: _loadData,
-                            child: const Text('Réessayer'),
-                          ),
-                          const SizedBox(height: 16),
-                          OutlinedButton(
-                            onPressed: () => context.go('/home'),
-                            child: const Text('Retour à l\'accueil'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+                  return _buildErrorState(categoryState.message);
                 }
-
                 if (attemptsState is AttemptsError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.error_outline,
-                              size: 64, color: colorScheme.error),
-                          const SizedBox(height: 16),
-                          Text('Erreur',
-                              style: context.textTheme.headlineSmall),
-                          const SizedBox(height: 8),
-                          Text(attemptsState.message,
-                              textAlign: TextAlign.center),
-                          const SizedBox(height: 24),
-                          ElevatedButton(
-                            onPressed: _loadData,
-                            child: const Text('Réessayer'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+                  return _buildErrorState(attemptsState.message);
                 }
 
+                // Contenu
                 if (categoryState is CategoryLoaded &&
                     attemptsState is AttemptsLoaded) {
-                  final category = categoryState.category;
-                  final quizzes = categoryState.quizzes;
-
-                  final overallProgress = _calculateOverallProgress(
-                      category, quizzes, attemptsState);
-                  final beginnerProgress = _getLevelProgress(
-                      category, 'debutant', quizzes, attemptsState);
-                  final intermediateProgress = _getLevelProgress(
-                      category, 'intermediaire', quizzes, attemptsState);
-                  final advancedProgress = _getLevelProgress(
-                      category, 'avance', quizzes, attemptsState);
-
-                  return RefreshIndicator(
-                    onRefresh: () async {
-                      _loadData();
-                      await Future.delayed(const Duration(milliseconds: 500));
-                    },
-                    color: colorScheme.primary,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Header avec progression
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(24.0),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  colorScheme.primary,
-                                  colorScheme.primary.withOpacity(0.7),
-                                ],
-                              ),
-                            ),
-                            child: SafeArea(
-                              bottom: false,
-                              child: Column(
-                                children: [
-                                  _buildCategoryIcon(category, colorScheme),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    category.name,
-                                    style: context.textTheme.headlineMedium
-                                        ?.copyWith(
-                                      color: colorScheme.onPrimary,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  if (category.description != null)
-                                    Text(
-                                      category.description!,
-                                      style: context.textTheme.bodyMedium
-                                          ?.copyWith(
-                                        color: colorScheme.onPrimary
-                                            .withOpacity(0.9),
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  const SizedBox(height: 24),
-                                  Column(
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Progression globale',
-                                            style: context.textTheme.titleSmall
-                                                ?.copyWith(
-                                              color: colorScheme.onPrimary,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          Text(
-                                            '${overallProgress.round()}%',
-                                            style: context.textTheme.titleMedium
-                                                ?.copyWith(
-                                              color: colorScheme.onPrimary,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: LinearProgressIndicator(
-                                          value: overallProgress / 100,
-                                          minHeight: 12,
-                                          backgroundColor: colorScheme.onPrimary
-                                              .withOpacity(0.3),
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                            colorScheme.onPrimary,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // Liste des niveaux avec progression
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Parcours d\'apprentissage',
-                                  style: context.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Niveau Débutant
-                                LevelProgressCard(
-                                  title: 'Niveau Débutant',
-                                  level: 'debutant',
-                                  accessible: beginnerProgress['accessible'],
-                                  attempts: beginnerProgress['attempts'],
-                                  bestScore: beginnerProgress['bestScore'],
-                                  passed: beginnerProgress['passed'],
-                                  inProgress: beginnerProgress['inProgress'],
-                                  onStart: () {
-                                    final quizId = beginnerProgress['quizId'];
-                                    if (quizId != null) {
-                                      _navigateToQuiz(
-                                          quizId,
-                                          beginnerProgress['inProgress'] ==
-                                              true);
-                                    }
-                                  },
-                                ),
-
-                                const SizedBox(height: 16),
-
-                                // Niveau Intermédiaire
-                                LevelProgressCard(
-                                  title: 'Niveau Intermédiaire',
-                                  level: 'intermediaire',
-                                  accessible:
-                                      intermediateProgress['accessible'],
-                                  attempts: intermediateProgress['attempts'],
-                                  bestScore: intermediateProgress['bestScore'],
-                                  passed: intermediateProgress['passed'],
-                                  inProgress:
-                                      intermediateProgress['inProgress'],
-                                  onStart: intermediateProgress['accessible']
-                                      ? () {
-                                          final quizId =
-                                              intermediateProgress['quizId'];
-                                          if (quizId != null) {
-                                            _navigateToQuiz(
-                                                quizId,
-                                                intermediateProgress[
-                                                        'inProgress'] ==
-                                                    true);
-                                          }
-                                        }
-                                      : null,
-                                ),
-
-                                const SizedBox(height: 16),
-
-                                // Niveau Avancé
-                                LevelProgressCard(
-                                  title: 'Niveau Avancé',
-                                  level: 'avance',
-                                  accessible: advancedProgress['accessible'],
-                                  attempts: advancedProgress['attempts'],
-                                  bestScore: advancedProgress['bestScore'],
-                                  passed: advancedProgress['passed'],
-                                  inProgress: advancedProgress['inProgress'],
-                                  onStart: advancedProgress['accessible']
-                                      ? () {
-                                          final quizId =
-                                              advancedProgress['quizId'];
-                                          if (quizId != null) {
-                                            _navigateToQuiz(
-                                                quizId,
-                                                advancedProgress[
-                                                        'inProgress'] ==
-                                                    true);
-                                          }
-                                        }
-                                      : null,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+                  return _buildContent(
+                      categoryState, attemptsState, colorScheme);
                 }
 
                 return Center(
@@ -545,6 +275,199 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
     );
   }
 
+  Widget _buildErrorState(String message) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: colorScheme.error),
+            const SizedBox(height: 16),
+            Text('Erreur', style: context.textTheme.headlineSmall),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            ElevatedButton(
+                onPressed: () => _loadData(forceRefresh: true),
+                child: const Text('Réessayer')),
+            const SizedBox(height: 16),
+            OutlinedButton(
+                onPressed: () => context.go('/home'),
+                child: const Text('Retour à l\'accueil')),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(
+    CategoryLoaded categoryState,
+    AttemptsLoaded attemptsState,
+    ColorScheme colorScheme,
+  ) {
+    final category = categoryState.category;
+    final quizzes = categoryState.quizzes;
+
+    final overallProgress =
+        _calculateOverallProgress(category, quizzes, attemptsState);
+    final beginnerProgress =
+        _getLevelProgress(category, 'debutant', quizzes, attemptsState);
+    final intermediateProgress =
+        _getLevelProgress(category, 'intermediaire', quizzes, attemptsState);
+    final advancedProgress =
+        _getLevelProgress(category, 'avance', quizzes, attemptsState);
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        _loadData(forceRefresh: true);
+        await Future.delayed(const Duration(milliseconds: 500));
+      },
+      color: colorScheme.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24.0),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  colorScheme.primary,
+                  colorScheme.primary.withOpacity(0.7),
+                ]),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Column(
+                  children: [
+                    _buildCategoryIcon(category, colorScheme),
+                    const SizedBox(height: 16),
+                    Text(
+                      category.name,
+                      style: context.textTheme.headlineMedium?.copyWith(
+                        color: colorScheme.onPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    if (category.description != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        category.description!,
+                        style: context.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onPrimary.withOpacity(0.9)),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Progression globale',
+                            style: context.textTheme.titleSmall?.copyWith(
+                              color: colorScheme.onPrimary,
+                              fontWeight: FontWeight.w600,
+                            )),
+                        Text('${overallProgress.round()}%',
+                            style: context.textTheme.titleMedium?.copyWith(
+                              color: colorScheme.onPrimary,
+                              fontWeight: FontWeight.bold,
+                            )),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: overallProgress / 100,
+                        minHeight: 12,
+                        backgroundColor: colorScheme.onPrimary.withOpacity(0.3),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            colorScheme.onPrimary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Niveaux
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Parcours d\'apprentissage',
+                      style: context.textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  LevelProgressCard(
+                    title: 'Niveau Débutant',
+                    level: 'debutant',
+                    accessible: beginnerProgress['accessible'],
+                    attempts: beginnerProgress['attempts'],
+                    bestScore: beginnerProgress['bestScore'],
+                    passed: beginnerProgress['passed'],
+                    inProgress: beginnerProgress['inProgress'],
+                    onStart: () {
+                      final quizId = beginnerProgress['quizId'];
+                      if (quizId != null) {
+                        _navigateToQuiz(
+                            quizId, beginnerProgress['inProgress'] == true);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  LevelProgressCard(
+                    title: 'Niveau Intermédiaire',
+                    level: 'intermediaire',
+                    accessible: intermediateProgress['accessible'],
+                    attempts: intermediateProgress['attempts'],
+                    bestScore: intermediateProgress['bestScore'],
+                    passed: intermediateProgress['passed'],
+                    inProgress: intermediateProgress['inProgress'],
+                    onStart: intermediateProgress['accessible']
+                        ? () {
+                            final quizId = intermediateProgress['quizId'];
+                            if (quizId != null) {
+                              _navigateToQuiz(quizId,
+                                  intermediateProgress['inProgress'] == true);
+                            }
+                          }
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  LevelProgressCard(
+                    title: 'Niveau Avancé',
+                    level: 'avance',
+                    accessible: advancedProgress['accessible'],
+                    attempts: advancedProgress['attempts'],
+                    bestScore: advancedProgress['bestScore'],
+                    passed: advancedProgress['passed'],
+                    inProgress: advancedProgress['inProgress'],
+                    onStart: advancedProgress['accessible']
+                        ? () {
+                            final quizId = advancedProgress['quizId'];
+                            if (quizId != null) {
+                              _navigateToQuiz(quizId,
+                                  advancedProgress['inProgress'] == true);
+                            }
+                          }
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCategoryIcon(CategoryEntity category, ColorScheme colorScheme) {
     final iconUrl = category.iconUrl ?? category.name.categoryIconUrl;
     final hasIcon = iconUrl.isNotEmpty;
@@ -557,11 +480,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
           color: colorScheme.onPrimary.withOpacity(0.2),
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          Icons.code,
-          color: colorScheme.onPrimary,
-          size: 60,
-        ),
+        child: Icon(Icons.code, color: colorScheme.onPrimary, size: 60),
       );
     }
 
@@ -575,10 +494,9 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 4))
           ],
         ),
         child: SvgPicture.network(
@@ -600,21 +518,17 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4))
         ],
       ),
       child: ClipOval(
         child: Image.network(
           iconUrl,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Icon(
-            Icons.code,
-            color: colorScheme.primary,
-            size: 60,
-          ),
+          errorBuilder: (_, __, ___) =>
+              Icon(Icons.code, color: colorScheme.primary, size: 60),
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
             return Center(
@@ -629,7 +543,3 @@ class _CategoryDetailPageState extends State<CategoryDetailPage>
     );
   }
 }
-
-// RouteObserver global pour détecter les changements de route
-final RouteObserver<ModalRoute<void>> routeObserver =
-    RouteObserver<ModalRoute<void>>();

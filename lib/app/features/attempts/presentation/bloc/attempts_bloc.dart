@@ -5,15 +5,6 @@ import '../../domain/usecases/attempts_usecases.dart';
 import 'attempts_event.dart';
 import 'attempts_state.dart';
 
-/// Bloc pour gérer l'historique des tentatives
-///
-/// Fonctionnalités:
-/// - Chargement des tentatives
-/// - Filtrage (toutes/réussies/échouées)
-/// - Tri (date/score/catégorie)
-/// - Recherche par titre
-/// - Pull-to-refresh
-/// - Calcul des statistiques
 class AttemptsBloc extends Bloc<AttemptsEvent, AttemptsState> {
   final GetUserAttemptsUseCase _getUserAttemptsUseCase;
   final GetAttemptStatisticsUseCase _getAttemptStatisticsUseCase;
@@ -30,61 +21,34 @@ class AttemptsBloc extends Bloc<AttemptsEvent, AttemptsState> {
     on<SortAttempts>(_onSortAttempts);
     on<SearchAttempts>(_onSearchAttempts);
     on<ClearSearch>(_onClearSearch);
+    on<InvalidateAttempts>(_onInvalidateAttempts);
   }
 
   // ==========================================================================
-  // LOAD ATTEMPTS
+  // LOAD
   // ==========================================================================
 
   Future<void> _onLoadAttempts(
     LoadAttempts event,
     Emitter<AttemptsState> emit,
   ) async {
-    // Si déjà chargé, ne rien faire
-    if (state is AttemptsLoaded) {
-      debugPrint('⏭️  AttemptsBloc: Attempts déjà chargés, skip');
+    // Skip uniquement si déjà chargé ET pas de forceLoad
+    if (state is AttemptsLoaded && !event.forceLoad) {
+      debugPrint('⏭️ AttemptsBloc: déjà chargé, skip LoadAttempts');
       return;
     }
-
-    // Si en cours de chargement, ne pas relancer
     if (state is AttemptsLoading) {
-      debugPrint('⏭️  AttemptsBloc: Chargement déjà en cours, skip');
+      debugPrint('⏭️ AttemptsBloc: chargement déjà en cours, skip');
       return;
     }
 
-    debugPrint('📥 AttemptsBloc: Chargement des attempts...');
+    debugPrint('📥 AttemptsBloc: LoadAttempts...');
     emit(const AttemptsLoading());
-
-    // 1. Récupérer les tentatives
-    final attemptsResult = await _getUserAttemptsUseCase();
-
-    await attemptsResult.fold(
-      (failure) async {
-        emit(AttemptsError(failure.message));
-      },
-      (attempts) async {
-        // 2. Récupérer les statistiques
-        final statsResult = await _getAttemptStatisticsUseCase();
-
-        statsResult.fold(
-          (failure) => emit(AttemptsError(failure.message)),
-          (stats) {
-            // 3. Trier par défaut (date décroissante)
-            final sorted = _sortAttempts(attempts, AttemptSort.dateDesc);
-
-            emit(AttemptsLoaded(
-              allAttempts: attempts,
-              filteredAttempts: sorted,
-              statistics: stats,
-            ));
-          },
-        );
-      },
-    );
+    await _fetchAndEmit(emit, previousState: null);
   }
 
   // ==========================================================================
-  // REFRESH ATTEMPTS
+  // REFRESH
   // ==========================================================================
 
   Future<void> _onRefreshAttempts(
@@ -92,22 +56,91 @@ class AttemptsBloc extends Bloc<AttemptsEvent, AttemptsState> {
     Emitter<AttemptsState> emit,
   ) async {
     final currentState = state;
+    debugPrint('🔄 AttemptsBloc: RefreshAttempts...');
 
-    // Marquer comme en cours de refresh
     if (currentState is AttemptsLoaded) {
+      // Indiquer le refresh sans perdre les données actuelles
       emit(currentState.copyWith(isRefreshing: true));
+      await _fetchAndEmit(emit, previousState: currentState);
+    } else {
+      // Pas encore de données → chargement complet
+      emit(const AttemptsLoading());
+      await _fetchAndEmit(emit, previousState: null);
     }
+  }
 
-    debugPrint('🔄 AttemptsBloc: Refresh des attempts...');
+  // ==========================================================================
+  // INVALIDATE
+  // ==========================================================================
 
-    // Recharger les données
+  Future<void> _onInvalidateAttempts(
+    InvalidateAttempts event,
+    Emitter<AttemptsState> emit,
+  ) async {
+    debugPrint(
+        '🗑️ AttemptsBloc: cache invalidé (forceReload=${event.forceReload})');
+    emit(const AttemptsInitial());
+
+    if (event.forceReload) {
+      emit(const AttemptsLoading());
+      await _fetchAndEmit(emit, previousState: null);
+    }
+  }
+
+  // ==========================================================================
+  // FILTER / SORT / SEARCH
+  // ==========================================================================
+
+  void _onFilterAttempts(FilterAttempts event, Emitter<AttemptsState> emit) {
+    final s = state;
+    if (s is! AttemptsLoaded) return;
+    final filtered =
+        _applyFiltersAndSearch(s.allAttempts, event.filter, s.searchQuery);
+    final sorted = _sortAttempts(filtered, s.currentSort);
+    emit(s.copyWith(filteredAttempts: sorted, currentFilter: event.filter));
+  }
+
+  void _onSortAttempts(SortAttempts event, Emitter<AttemptsState> emit) {
+    final s = state;
+    if (s is! AttemptsLoaded) return;
+    final sorted = _sortAttempts(s.filteredAttempts, event.sortBy);
+    emit(s.copyWith(filteredAttempts: sorted, currentSort: event.sortBy));
+  }
+
+  void _onSearchAttempts(SearchAttempts event, Emitter<AttemptsState> emit) {
+    final s = state;
+    if (s is! AttemptsLoaded) return;
+    final filtered =
+        _applyFiltersAndSearch(s.allAttempts, s.currentFilter, event.query);
+    final sorted = _sortAttempts(filtered, s.currentSort);
+    emit(s.copyWith(filteredAttempts: sorted, searchQuery: event.query));
+  }
+
+  void _onClearSearch(ClearSearch event, Emitter<AttemptsState> emit) {
+    final s = state;
+    if (s is! AttemptsLoaded) return;
+    final filtered = _applyFiltersAndSearch(s.allAttempts, s.currentFilter, '');
+    final sorted = _sortAttempts(filtered, s.currentSort);
+    emit(s.copyWith(filteredAttempts: sorted, searchQuery: ''));
+  }
+
+  // ==========================================================================
+  // HELPERS
+  // ==========================================================================
+
+  /// Logique de fetch centralisée — évite la duplication entre Load et Refresh.
+  Future<void> _fetchAndEmit(
+    Emitter<AttemptsState> emit, {
+    required AttemptsLoaded? previousState,
+  }) async {
     final attemptsResult = await _getUserAttemptsUseCase();
 
     await attemptsResult.fold(
       (failure) async {
-        // En cas d'erreur, garder les données actuelles
-        if (currentState is AttemptsLoaded) {
-          emit(currentState.copyWith(isRefreshing: false));
+        debugPrint('❌ AttemptsBloc fetch error: ${failure.message}');
+        if (previousState != null) {
+          // Garder les données existantes si erreur réseau
+          emit(previousState.copyWith(isRefreshing: false));
         } else {
           emit(AttemptsError(failure.message));
         }
@@ -117,149 +150,39 @@ class AttemptsBloc extends Bloc<AttemptsEvent, AttemptsState> {
 
         statsResult.fold(
           (failure) {
-            if (currentState is AttemptsLoaded) {
-              emit(currentState.copyWith(isRefreshing: false));
+            if (previousState != null) {
+              emit(previousState.copyWith(isRefreshing: false));
+            } else {
+              emit(AttemptsError(failure.message));
             }
           },
           (stats) {
-            // Réappliquer les filtres/tri/recherche actuels
-            if (currentState is AttemptsLoaded) {
-              final filtered = _applyFiltersAndSearch(
-                attempts,
-                currentState.currentFilter,
-                currentState.searchQuery,
-              );
-              final sorted = _sortAttempts(filtered, currentState.currentSort);
+            // Réappliquer les filtres/tri/recherche du state précédent
+            final filter = previousState?.currentFilter ?? AttemptFilter.all;
+            final sort = previousState?.currentSort ?? AttemptSort.dateDesc;
+            final query = previousState?.searchQuery ?? '';
 
-              emit(AttemptsLoaded(
-                allAttempts: attempts,
-                filteredAttempts: sorted,
-                statistics: stats,
-                currentFilter: currentState.currentFilter,
-                currentSort: currentState.currentSort,
-                searchQuery: currentState.searchQuery,
-                isRefreshing: false,
-              ));
-            } else {
-              final sorted = _sortAttempts(attempts, AttemptSort.dateDesc);
-              emit(AttemptsLoaded(
-                allAttempts: attempts,
-                filteredAttempts: sorted,
-                statistics: stats,
-                isRefreshing: false,
-              ));
-            }
+            final filtered = _applyFiltersAndSearch(attempts, filter, query);
+            final sorted = _sortAttempts(filtered, sort);
+
+            debugPrint(
+                '✅ AttemptsBloc: ${attempts.length} tentative(s) chargée(s)');
+
+            emit(AttemptsLoaded(
+              allAttempts: attempts,
+              filteredAttempts: sorted,
+              statistics: stats,
+              currentFilter: filter,
+              currentSort: sort,
+              searchQuery: query,
+              isRefreshing: false,
+            ));
           },
         );
       },
     );
   }
 
-  // ==========================================================================
-  // FILTER ATTEMPTS
-  // ==========================================================================
-
-  void _onFilterAttempts(
-    FilterAttempts event,
-    Emitter<AttemptsState> emit,
-  ) {
-    final currentState = state;
-    if (currentState is! AttemptsLoaded) return;
-
-    // Appliquer le filtre
-    final filtered = _applyFiltersAndSearch(
-      currentState.allAttempts,
-      event.filter,
-      currentState.searchQuery,
-    );
-
-    // Trier
-    final sorted = _sortAttempts(filtered, currentState.currentSort);
-
-    emit(currentState.copyWith(
-      filteredAttempts: sorted,
-      currentFilter: event.filter,
-    ));
-  }
-
-  // ==========================================================================
-  // SORT ATTEMPTS
-  // ==========================================================================
-
-  void _onSortAttempts(
-    SortAttempts event,
-    Emitter<AttemptsState> emit,
-  ) {
-    final currentState = state;
-    if (currentState is! AttemptsLoaded) return;
-
-    // Trier les tentatives actuellement affichées
-    final sorted = _sortAttempts(currentState.filteredAttempts, event.sortBy);
-
-    emit(currentState.copyWith(
-      filteredAttempts: sorted,
-      currentSort: event.sortBy,
-    ));
-  }
-
-  // ==========================================================================
-  // SEARCH ATTEMPTS
-  // ==========================================================================
-
-  void _onSearchAttempts(
-    SearchAttempts event,
-    Emitter<AttemptsState> emit,
-  ) {
-    final currentState = state;
-    if (currentState is! AttemptsLoaded) return;
-
-    // Appliquer le filtre et la recherche
-    final filtered = _applyFiltersAndSearch(
-      currentState.allAttempts,
-      currentState.currentFilter,
-      event.query,
-    );
-
-    // Trier
-    final sorted = _sortAttempts(filtered, currentState.currentSort);
-
-    emit(currentState.copyWith(
-      filteredAttempts: sorted,
-      searchQuery: event.query,
-    ));
-  }
-
-  // ==========================================================================
-  // CLEAR SEARCH
-  // ==========================================================================
-
-  void _onClearSearch(
-    ClearSearch event,
-    Emitter<AttemptsState> emit,
-  ) {
-    final currentState = state;
-    if (currentState is! AttemptsLoaded) return;
-
-    // Réappliquer juste le filtre sans recherche
-    final filtered = _applyFiltersAndSearch(
-      currentState.allAttempts,
-      currentState.currentFilter,
-      '',
-    );
-
-    final sorted = _sortAttempts(filtered, currentState.currentSort);
-
-    emit(currentState.copyWith(
-      filteredAttempts: sorted,
-      searchQuery: '',
-    ));
-  }
-
-  // ==========================================================================
-  // HELPER METHODS
-  // ==========================================================================
-
-  /// Applique le filtre et la recherche
   List<AttemptSummaryEntity> _applyFiltersAndSearch(
     List<AttemptSummaryEntity> attempts,
     AttemptFilter filter,
@@ -267,66 +190,54 @@ class AttemptsBloc extends Bloc<AttemptsEvent, AttemptsState> {
   ) {
     var result = List<AttemptSummaryEntity>.from(attempts);
 
-    // 1. Appliquer le filtre
     switch (filter) {
       case AttemptFilter.inProgress:
-        // Afficher uniquement les tentatives en cours
         result = result.where((a) => a.isInProgress).toList();
         break;
       case AttemptFilter.passed:
-        // Afficher uniquement les tentatives réussies (et terminées)
         result = result.where((a) => a.passed && !a.isInProgress).toList();
         break;
       case AttemptFilter.failed:
-        // Afficher uniquement les tentatives échouées (et terminées)
         result = result.where((a) => !a.passed && !a.isInProgress).toList();
         break;
       case AttemptFilter.all:
-        // Pas de filtre
         break;
     }
 
-    // 2. Appliquer la recherche
     if (searchQuery.isNotEmpty) {
-      final lowerQuery = searchQuery.toLowerCase();
-      result = result.where((a) {
-        return a.quizTitle.toLowerCase().contains(lowerQuery) ||
-            a.categoryName.toLowerCase().contains(lowerQuery);
-      }).toList();
+      final q = searchQuery.toLowerCase();
+      result = result
+          .where((a) =>
+              a.quizTitle.toLowerCase().contains(q) ||
+              a.categoryName.toLowerCase().contains(q))
+          .toList();
     }
 
     return result;
   }
 
-  /// Trie la liste selon le critère
   List<AttemptSummaryEntity> _sortAttempts(
     List<AttemptSummaryEntity> attempts,
     AttemptSort sortBy,
   ) {
     final sorted = List<AttemptSummaryEntity>.from(attempts);
-
     switch (sortBy) {
       case AttemptSort.dateDesc:
         sorted.sort((a, b) => b.completedAt.compareTo(a.completedAt));
         break;
-
       case AttemptSort.dateAsc:
         sorted.sort((a, b) => a.completedAt.compareTo(b.completedAt));
         break;
-
       case AttemptSort.scoreDesc:
         sorted.sort((a, b) => b.score.compareTo(a.score));
         break;
-
       case AttemptSort.scoreAsc:
         sorted.sort((a, b) => a.score.compareTo(b.score));
         break;
-
       case AttemptSort.categoryAsc:
         sorted.sort((a, b) => a.categoryName.compareTo(b.categoryName));
         break;
     }
-
     return sorted;
   }
 }

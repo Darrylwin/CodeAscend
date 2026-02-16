@@ -11,10 +11,11 @@ import '../../../quiz/data/models/user_answer_model.dart';
 import '../../../quiz/data/models/quiz_attempt_model.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../auth/data/datasources/auth_local_data_source.dart';
+import '../../../attempts/presentation/bloc/attempts_bloc.dart';
+import '../../../attempts/presentation/bloc/attempts_event.dart';
 import 'quiz_event.dart';
 import 'quiz_state.dart';
 
-/// Bloc qui gère le déroulé d'un quiz (chargement, réponses, sauvegarde locale, soumission)
 class QuizBloc extends Bloc<QuizEvent, QuizState> {
   final SubmitQuizUseCase _submitQuiz;
   final FlushPendingSubmissionsUseCase _flushPending;
@@ -45,10 +46,8 @@ class QuizBloc extends Bloc<QuizEvent, QuizState> {
     emit(const QuizLoading());
 
     try {
-      // Appeler directement le remote data source pour obtenir quiz + questions + attemptId
       final result = await _remote.startQuiz(quizId: event.quizId);
 
-      // Créer le QuizEntity complet avec les questions
       final quizWithQuestions = QuizEntity(
         id: result.quiz.id,
         categoryId: result.quiz.categoryId,
@@ -60,21 +59,18 @@ class QuizBloc extends Bloc<QuizEvent, QuizState> {
         questions: result.questions,
       );
 
-      // Créer ou mettre à jour la tentative locale avec le BON attemptId
       final authLocal = sl<AuthLocalDataSource>();
       final userId = await authLocal.getCurrentUserId() ?? '';
 
       final localAttempt = QuizAttemptModel(
         localId: 'local_${DateTime.now().millisecondsSinceEpoch}',
-        remoteAttemptId:
-            result.attemptId, // ← IMPORTANT: Utiliser l'attemptId de l'API
+        remoteAttemptId: result.attemptId,
         quizId: event.quizId,
         userId: userId,
         answers: [],
         status: AttemptStatus.inProgress,
       );
 
-      // Sauvegarder la tentative
       await _local.saveInProgressAttempt(localAttempt);
 
       if (emit.isDone) return;
@@ -95,50 +91,33 @@ class QuizBloc extends Bloc<QuizEvent, QuizState> {
     emit(const QuizLoading());
 
     try {
-      // Vérifier si une tentative en cours existe en local
       final existingAttempt = await _local.getInProgressAttempt(event.quizId);
 
+      final result = await _remote.startQuiz(quizId: event.quizId);
+
+      final quizWithQuestions = QuizEntity(
+        id: result.quiz.id,
+        categoryId: result.quiz.categoryId,
+        title: result.quiz.title,
+        level: result.quiz.level,
+        questionCount: result.questions.length,
+        status: result.quiz.status,
+        createdAt: result.quiz.createdAt,
+        questions: result.questions,
+      );
+
       if (existingAttempt != null && existingAttempt.remoteAttemptId != null) {
-        // Récupérer le quiz avec les questions
-        final result = await _remote.startQuiz(quizId: event.quizId);
-
-        final quizWithQuestions = QuizEntity(
-          id: result.quiz.id,
-          categoryId: result.quiz.categoryId,
-          title: result.quiz.title,
-          level: result.quiz.level,
-          questionCount: result.questions.length,
-          status: result.quiz.status,
-          createdAt: result.quiz.createdAt,
-          questions: result.questions,
-        );
-
-        // Calculer l'index de la question actuelle
-        // = nombre de questions déjà répondues
-        final currentQuestionIndex = existingAttempt.answers.length;
+        final currentQuestionIndex = existingAttempt.answers.length
+            .clamp(0, result.questions.length - 1);
 
         if (emit.isDone) return;
 
         emit(QuizInProgress(
           quiz: quizWithQuestions,
           localAttempt: existingAttempt,
-          currentQuestionIndex: currentQuestionIndex, // Position exacte
+          currentQuestionIndex: currentQuestionIndex,
         ));
       } else {
-        // Pas de tentative, démarrer une nouvelle
-        final result = await _remote.startQuiz(quizId: event.quizId);
-
-        final quizWithQuestions = QuizEntity(
-          id: result.quiz.id,
-          categoryId: result.quiz.categoryId,
-          title: result.quiz.title,
-          level: result.quiz.level,
-          questionCount: result.questions.length,
-          status: result.quiz.status,
-          createdAt: result.quiz.createdAt,
-          questions: result.questions,
-        );
-
         final authLocal = sl<AuthLocalDataSource>();
         final userId = await authLocal.getCurrentUserId() ?? '';
 
@@ -158,7 +137,7 @@ class QuizBloc extends Bloc<QuizEvent, QuizState> {
         emit(QuizInProgress(
           quiz: quizWithQuestions,
           localAttempt: localAttempt,
-          currentQuestionIndex: 0, // Démarrer à 0
+          currentQuestionIndex: 0,
         ));
       }
     } catch (e) {
@@ -175,10 +154,7 @@ class QuizBloc extends Bloc<QuizEvent, QuizState> {
     final attempt = current.localAttempt;
     if (attempt == null) return;
 
-    // Créer une nouvelle liste d'answers
     final updatedAnswers = List<UserAnswerModel>.from(attempt.answers);
-
-    // Update or add the answer
     final index =
         updatedAnswers.indexWhere((a) => a.questionId == event.questionId);
 
@@ -194,7 +170,6 @@ class QuizBloc extends Bloc<QuizEvent, QuizState> {
       ));
     }
 
-    // Créer une NOUVELLE instance de QuizAttemptModel
     final updatedAttempt = QuizAttemptModel(
       localId: attempt.localId,
       remoteAttemptId: attempt.remoteAttemptId,
@@ -232,42 +207,40 @@ class QuizBloc extends Bloc<QuizEvent, QuizState> {
 
     if (emit.isDone) return;
 
-    if (submitEither.isLeft()) {
-      final failure = submitEither.fold((l) => l, (_) => throw Exception());
-      emit(QuizError(failure.message));
-      return;
-    }
+    submitEither.fold(
+      (failure) => emit(QuizError(failure.message)),
+      (attemptEntity) {
+        emit(QuizSubmitted(result: attemptEntity, queued: false));
 
-    final attemptEntity = submitEither.fold((_) => throw Exception(), (r) => r);
+        // Nettoyer le cache local
+        _local.clearInProgressAttempt(attemptEntity.quizId).catchError((_) {});
 
-    emit(QuizSubmitted(result: attemptEntity, queued: false));
-
-    // Nettoyer le cache local
-    try {
-      await _local.clearInProgressAttempt(attemptEntity.quizId);
-    } catch (_) {
-      // Ignorer les erreurs de nettoyage
-    }
-  }
-
-  Future<void> _onFlushPendingRequested(
-      QuizFlushPendingRequested event, Emitter<QuizState> emit) async {
-    final result = await _flushPending.call();
-
-    result.fold(
-      (failure) {
-        debugPrint('Échec flush pending: ${failure.message}');
-      },
-      (count) {
-        if (count > 0) {
-          debugPrint('✅ $count tentative(s) synchronisée(s)');
+        // Invalider le cache AttemptsBloc pour forcer un refresh
+        // au prochain affichage de l'historique ou du détail catégorie
+        try {
+          if (sl.isRegistered<AttemptsBloc>()) {
+            sl<AttemptsBloc>()
+                .add(const InvalidateAttempts(forceReload: false));
+            debugPrint('🗑️ QuizBloc: AttemptsBloc invalidé après soumission');
+          }
+        } catch (e) {
+          debugPrint('⚠️ QuizBloc: impossible d\'invalider AttemptsBloc: $e');
         }
       },
     );
   }
 
-  @override
-  Future<void> close() {
-    return super.close();
+  Future<void> _onFlushPendingRequested(
+      QuizFlushPendingRequested event, Emitter<QuizState> emit) async {
+    final result = await _flushPending.call();
+    result.fold(
+      (failure) => debugPrint('❌ Échec flush pending: ${failure.message}'),
+      (count) {
+        if (count > 0) debugPrint('✅ $count tentative(s) synchronisée(s)');
+      },
+    );
   }
+
+  @override
+  Future<void> close() => super.close();
 }

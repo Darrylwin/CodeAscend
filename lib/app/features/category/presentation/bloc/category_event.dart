@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
 
-/// Events pour CategoryBloc — actions utilisateur / lifecycle
 abstract class CategoryEvent extends Equatable {
   const CategoryEvent();
 
@@ -8,7 +7,6 @@ abstract class CategoryEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Demande de récupération de la liste des catégories
 class FetchCategories extends CategoryEvent {
   final bool? isActive;
   final int page;
@@ -26,12 +24,17 @@ class FetchCategories extends CategoryEvent {
   List<Object?> get props => [isActive, page, perPage, forceRefresh];
 }
 
-/// Demande de récupération d'une catégorie par id
 class FetchCategoryById extends CategoryEvent {
   final String id;
+  final bool forceRefresh;
 
-  const FetchCategoryById(this.id);
+  const FetchCategoryById(this.id, {this.forceRefresh = false});
 
   @override
-  List<Object?> get props => [id];
+  List<Object?> get props => [id, forceRefresh];
+}
+
+/// Remet le bloc à son état initial pour forcer un rechargement complet.
+class InvalidateCategoryCache extends CategoryEvent {
+  const InvalidateCategoryCache();
 }

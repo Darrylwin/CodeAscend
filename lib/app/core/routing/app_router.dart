@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../main.dart'; // pour AuthNotifier
+import '../../../main.dart';
 import '../../features/auth/presentation/pages/profile_page.dart';
 import '../di/service_locator.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
@@ -24,12 +24,12 @@ import '../../features/attempts/presentation/pages/attempts_history_page.dart';
 import '../../features/attempts/presentation/bloc/attempts_bloc.dart';
 import '../../features/user_stats/presentation/pages/user_stats_page.dart';
 import '../../features/user_stats/presentation/bloc/user_stats_bloc.dart';
+import '../utils/route_observer.dart';
 import '../widgets/scaffold_with_navbar.dart';
 
 class AppRouter {
   AppRouter._();
 
-  // Route names
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
@@ -44,8 +44,6 @@ class AppRouter {
   static const String quizReview = '/quiz/:id/review';
   static const String attemptReview = '/attempt/:attemptId/review';
 
-  /// Factory : crée le GoRouter avec refreshListenable.
-  /// Remplace l'ancienne méthode router() qui prenait isAuthenticated + authState.
   static GoRouter createRouter({
     required AuthNotifier authNotifier,
     GlobalKey<NavigatorState>? navigatorKey,
@@ -55,39 +53,29 @@ class AppRouter {
       observers: [routeObserver],
       initialLocation: splash,
       debugLogDiagnostics: false,
-
-      // ✅ CLÉ DU FIX : GoRouter réévalue redirect() à chaque notifyListeners()
       refreshListenable: authNotifier,
-
       redirect: (context, state) async {
         final authState = authNotifier.state;
         final currentLocation = state.matchedLocation;
 
-        // États temporaires : on laisse la splash screen affichée
         final isCheckingAuth =
             authState is AuthInitial || authState is AuthChecking;
 
         if (currentLocation == splash) {
-          if (isCheckingAuth) return null; // rester sur splash
+          if (isCheckingAuth) return null;
           return authNotifier.isAuthenticated ? home : login;
         }
 
         final publicRoutes = [login, register];
         final isPublicRoute = publicRoutes.contains(currentLocation);
 
-        // Non authentifié sur une route protégée → login
         if (!authNotifier.isAuthenticated && !isPublicRoute) return login;
-
-        // Authentifié sur une route publique → home
         if (authNotifier.isAuthenticated &&
             isPublicRoute &&
-            authState is Authenticated) {
-          return home;
-        }
+            authState is Authenticated) return home;
 
         return null;
       },
-
       routes: [
         GoRoute(
           path: splash,
@@ -97,7 +85,6 @@ class AppRouter {
             child: const SplashPage(),
           ),
         ),
-
         GoRoute(
           path: login,
           name: 'login',
@@ -106,7 +93,6 @@ class AppRouter {
             child: const LoginPage(),
           ),
         ),
-
         GoRoute(
           path: register,
           name: 'register',
@@ -116,92 +102,82 @@ class AppRouter {
           ),
         ),
 
-        // StatefulShellRoute pour les pages avec BottomNav
+        // BottomNav shell
         StatefulShellRoute.indexedStack(
-          builder: (context, state, navigationShell) {
-            return ScaffoldWithNavBar(navigationShell: navigationShell);
-          },
+          builder: (context, state, navigationShell) =>
+              ScaffoldWithNavBar(navigationShell: navigationShell),
           branches: [
-            // Branch 1: Home
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: home,
-                  pageBuilder: (context, state) => NoTransitionPage<void>(
-                    key: state.pageKey,
-                    child: MultiBlocProvider(
-                      providers: [
-                        BlocProvider(
-                          create: (_) {
-                            final bloc = sl<CategoryBloc>();
-                            if (bloc.state is CategoryInitial) {
-                              Future.delayed(Duration.zero, () {
-                                if (!bloc.isClosed) {
-                                  bloc.add(
-                                      const FetchCategories(isActive: true));
-                                }
-                              });
-                            }
-                            return bloc;
-                          },
-                        ),
-                        BlocProvider.value(value: sl<AttemptsBloc>()),
-                      ],
-                      child: const HomePage(),
-                    ),
+            // Home
+            StatefulShellBranch(routes: [
+              GoRoute(
+                path: home,
+                pageBuilder: (context, state) => NoTransitionPage<void>(
+                  key: state.pageKey,
+                  child: MultiBlocProvider(
+                    providers: [
+                      BlocProvider(
+                        create: (_) {
+                          final bloc = sl<CategoryBloc>();
+                          if (bloc.state is CategoryInitial) {
+                            Future.delayed(Duration.zero, () {
+                              if (!bloc.isClosed) {
+                                bloc.add(const FetchCategories(isActive: true));
+                              }
+                            });
+                          }
+                          return bloc;
+                        },
+                      ),
+                      BlocProvider.value(value: sl<AttemptsBloc>()),
+                    ],
+                    child: const HomePage(),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ]),
 
-            // Branch 2: History
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: history,
-                  pageBuilder: (context, state) => NoTransitionPage<void>(
-                    key: state.pageKey,
-                    child: BlocProvider.value(
-                      value: sl<AttemptsBloc>(),
-                      child: const AttemptsHistoryPage(),
-                    ),
+            // History
+            StatefulShellBranch(routes: [
+              GoRoute(
+                path: history,
+                pageBuilder: (context, state) => NoTransitionPage<void>(
+                  key: state.pageKey,
+                  child: BlocProvider.value(
+                    value: sl<AttemptsBloc>(),
+                    child: const AttemptsHistoryPage(),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ]),
 
-            // Branch 3: Statistics
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: statistics,
-                  pageBuilder: (context, state) => NoTransitionPage<void>(
-                    key: state.pageKey,
-                    child: BlocProvider.value(
-                      value: sl<UserStatsBloc>(),
-                      child: const UserStatsPage(),
-                    ),
+            // Statistics
+            StatefulShellBranch(routes: [
+              GoRoute(
+                path: statistics,
+                pageBuilder: (context, state) => NoTransitionPage<void>(
+                  key: state.pageKey,
+                  child: BlocProvider.value(
+                    value: sl<UserStatsBloc>(),
+                    child: const UserStatsPage(),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ]),
 
-            // Branch 4: Profile
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: profile,
-                  pageBuilder: (context, state) => NoTransitionPage<void>(
-                    key: state.pageKey,
-                    child: const ProfileScreen(),
-                  ),
+            // Profile
+            StatefulShellBranch(routes: [
+              GoRoute(
+                path: profile,
+                pageBuilder: (context, state) => NoTransitionPage<void>(
+                  key: state.pageKey,
+                  child: const ProfileScreen(),
                 ),
-              ],
-            ),
+              ),
+            ]),
           ],
         ),
 
-        // Routes standalone (sans BottomNav)
+        // Category detail (standalone)
         GoRoute(
           path: categoryDetail,
           name: 'categoryDetail',
@@ -236,14 +212,12 @@ class AppRouter {
                       if (catState is CategoryLoading ||
                           catState is CategoryInitial) {
                         return const Scaffold(
-                          body: Center(child: CircularProgressIndicator()),
-                        );
+                            body: Center(child: CircularProgressIndicator()));
                       }
                       if (catState is CategoryError) {
                         return Scaffold(
-                          appBar: AppBar(title: const Text('Quizzes')),
-                          body: Center(child: Text(catState.message)),
-                        );
+                            appBar: AppBar(title: const Text('Quizzes')),
+                            body: Center(child: Text(catState.message)));
                       }
                       if (catState is CategoryLoaded) {
                         return CategoryQuizzesPage(
@@ -334,7 +308,6 @@ class AppRouter {
           },
         ),
       ],
-
       errorBuilder: (context, state) => Scaffold(
         body: Center(
           child: Column(
@@ -359,7 +332,6 @@ class AppRouter {
   }
 }
 
-/// Wrapper QuizScreen avec confirmation de sortie
 class _QuizScreenWrapper extends StatelessWidget {
   final String quizId;
   const _QuizScreenWrapper({required this.quizId});
