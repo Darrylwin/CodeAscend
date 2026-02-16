@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../main.dart'; // pour AuthNotifier
 import '../../features/auth/presentation/pages/profile_page.dart';
 import '../di/service_locator.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
@@ -25,7 +26,6 @@ import '../../features/user_stats/presentation/pages/user_stats_page.dart';
 import '../../features/user_stats/presentation/bloc/user_stats_bloc.dart';
 import '../widgets/scaffold_with_navbar.dart';
 
-/// Configuration du routing avec GoRouter
 class AppRouter {
   AppRouter._();
 
@@ -44,9 +44,10 @@ class AppRouter {
   static const String quizReview = '/quiz/:id/review';
   static const String attemptReview = '/attempt/:attemptId/review';
 
-  static GoRouter router({
-    required bool isAuthenticated,
-    required AuthState authState,
+  /// Factory : crée le GoRouter avec refreshListenable.
+  /// Remplace l'ancienne méthode router() qui prenait isAuthenticated + authState.
+  static GoRouter createRouter({
+    required AuthNotifier authNotifier,
     GlobalKey<NavigatorState>? navigatorKey,
   }) {
     return GoRouter(
@@ -54,77 +55,65 @@ class AppRouter {
       observers: [routeObserver],
       initialLocation: splash,
       debugLogDiagnostics: false,
+
+      // ✅ CLÉ DU FIX : GoRouter réévalue redirect() à chaque notifyListeners()
+      refreshListenable: authNotifier,
+
       redirect: (context, state) async {
+        final authState = authNotifier.state;
         final currentLocation = state.matchedLocation;
 
-        // États temporaires (vérification en cours)
+        // États temporaires : on laisse la splash screen affichée
         final isCheckingAuth =
             authState is AuthInitial || authState is AuthChecking;
 
-        // Splash screen : attendre ou rediriger
         if (currentLocation == splash) {
-          if (isCheckingAuth) {
-            return null; // Rester sur splash
-          }
-
-          // Si authentifié, aller à home
-          if (isAuthenticated) {
-            return home;
-          } else {
-            // Si non authentifié, aller à login
-            return login;
-          }
+          if (isCheckingAuth) return null; // rester sur splash
+          return authNotifier.isAuthenticated ? home : login;
         }
 
-        // Routes publiques (accessibles sans auth)
         final publicRoutes = [login, register];
         final isPublicRoute = publicRoutes.contains(currentLocation);
 
-        // Si non authentifié ET route protégée → rediriger vers login
-        if (!isAuthenticated && !isPublicRoute) {
-          return login;
-        }
+        // Non authentifié sur une route protégée → login
+        if (!authNotifier.isAuthenticated && !isPublicRoute) return login;
 
-        // Si authentifié ET sur une route publique, rediriger vers home
-        if (isAuthenticated && isPublicRoute && authState is Authenticated) {
+        // Authentifié sur une route publique → home
+        if (authNotifier.isAuthenticated &&
+            isPublicRoute &&
+            authState is Authenticated) {
           return home;
         }
 
-        // Sinon, laisser passer
         return null;
       },
+
       routes: [
         GoRoute(
           path: splash,
           name: 'splash',
-          pageBuilder: (context, state) {
-            return MaterialPage<void>(
-              key: state.pageKey,
-              child: const SplashPage(),
-            );
-          },
+          pageBuilder: (context, state) => MaterialPage<void>(
+            key: state.pageKey,
+            child: const SplashPage(),
+          ),
         ),
 
         GoRoute(
           path: login,
           name: 'login',
-          pageBuilder: (context, state) {
-            return MaterialPage<void>(
-              key: state.pageKey,
-              child: const LoginPage(),
-            );
-          },
+          pageBuilder: (context, state) => MaterialPage<void>(
+            key: state.pageKey,
+            child: const LoginPage(),
+          ),
         ),
 
         GoRoute(
           path: register,
           name: 'register',
-          pageBuilder: (context, state) {
-            return MaterialPage<void>(
-              key: state.pageKey,
-              child: const RegisterPage(),
-            );
-          },
+          pageBuilder: (context, state) => MaterialPage<void>(
+            key: state.pageKey,
+            child: const RegisterPage(),
+          ),
         ),
 
         // StatefulShellRoute pour les pages avec BottomNav
@@ -138,36 +127,29 @@ class AppRouter {
               routes: [
                 GoRoute(
                   path: home,
-                  pageBuilder: (context, state) {
-                    return NoTransitionPage<void>(
-                      key: state.pageKey,
-                      child: MultiBlocProvider(
-                        providers: [
-                          // CategoryBloc reste en factory
-                          BlocProvider(
-                            create: (_) {
-                              final bloc = sl<CategoryBloc>();
-                              // Charger si le state est Initial
-                              if (bloc.state is CategoryInitial) {
-                                Future.delayed(Duration.zero, () {
-                                  if (!bloc.isClosed) {
-                                    bloc.add(
-                                        const FetchCategories(isActive: true));
-                                  }
-                                });
-                              }
-                              return bloc;
-                            },
-                          ),
-                          // AttemptsBloc utilise le singleton existant
-                          BlocProvider.value(
-                            value: sl<AttemptsBloc>(),
-                          ),
-                        ],
-                        child: const HomePage(),
-                      ),
-                    );
-                  },
+                  pageBuilder: (context, state) => NoTransitionPage<void>(
+                    key: state.pageKey,
+                    child: MultiBlocProvider(
+                      providers: [
+                        BlocProvider(
+                          create: (_) {
+                            final bloc = sl<CategoryBloc>();
+                            if (bloc.state is CategoryInitial) {
+                              Future.delayed(Duration.zero, () {
+                                if (!bloc.isClosed) {
+                                  bloc.add(
+                                      const FetchCategories(isActive: true));
+                                }
+                              });
+                            }
+                            return bloc;
+                          },
+                        ),
+                        BlocProvider.value(value: sl<AttemptsBloc>()),
+                      ],
+                      child: const HomePage(),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -177,20 +159,13 @@ class AppRouter {
               routes: [
                 GoRoute(
                   path: history,
-                  pageBuilder: (context, state) {
-                    return NoTransitionPage<void>(
-                      key: state.pageKey,
-                      child: MultiBlocProvider(
-                        providers: [
-                          // AttemptsBloc utilise le singleton existant
-                          BlocProvider.value(
-                            value: sl<AttemptsBloc>(),
-                          ),
-                        ],
-                        child: const AttemptsHistoryPage(),
-                      ),
-                    );
-                  },
+                  pageBuilder: (context, state) => NoTransitionPage<void>(
+                    key: state.pageKey,
+                    child: BlocProvider.value(
+                      value: sl<AttemptsBloc>(),
+                      child: const AttemptsHistoryPage(),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -200,20 +175,13 @@ class AppRouter {
               routes: [
                 GoRoute(
                   path: statistics,
-                  pageBuilder: (context, state) {
-                    return NoTransitionPage<void>(
-                      key: state.pageKey,
-                      child: MultiBlocProvider(
-                        providers: [
-                          // UserStatsBloc utilise le singleton existant
-                          BlocProvider.value(
-                            value: sl<UserStatsBloc>(),
-                          ),
-                        ],
-                        child: const UserStatsPage(),
-                      ),
-                    );
-                  },
+                  pageBuilder: (context, state) => NoTransitionPage<void>(
+                    key: state.pageKey,
+                    child: BlocProvider.value(
+                      value: sl<UserStatsBloc>(),
+                      child: const UserStatsPage(),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -223,19 +191,17 @@ class AppRouter {
               routes: [
                 GoRoute(
                   path: profile,
-                  pageBuilder: (context, state) {
-                    return NoTransitionPage<void>(
-                      key: state.pageKey,
-                      child: const ProfileScreen(),
-                    );
-                  },
+                  pageBuilder: (context, state) => NoTransitionPage<void>(
+                    key: state.pageKey,
+                    child: const ProfileScreen(),
+                  ),
                 ),
               ],
             ),
           ],
         ),
 
-        // Routes "standalone" (sans BottomNav)
+        // Routes standalone (sans BottomNav)
         GoRoute(
           path: categoryDetail,
           name: 'categoryDetail',
@@ -245,14 +211,8 @@ class AppRouter {
               key: state.pageKey,
               child: MultiBlocProvider(
                 providers: [
-                  // CategoryBloc en factory
-                  BlocProvider(
-                    create: (_) => sl<CategoryBloc>(),
-                  ),
-                  // AttemptsBloc utilise le singleton existant
-                  BlocProvider.value(
-                    value: sl<AttemptsBloc>(),
-                  ),
+                  BlocProvider(create: (_) => sl<CategoryBloc>()),
+                  BlocProvider.value(value: sl<AttemptsBloc>()),
                 ],
                 child: CategoryDetailPage(categoryId: categoryId),
               ),
@@ -266,7 +226,6 @@ class AppRouter {
           pageBuilder: (context, state) {
             final categoryId = state.pathParameters['id']!;
             final level = state.uri.queryParameters['level'];
-
             return MaterialPage<void>(
               key: state.pageKey,
               child: BlocProvider(
@@ -277,23 +236,22 @@ class AppRouter {
                       if (catState is CategoryLoading ||
                           catState is CategoryInitial) {
                         return const Scaffold(
-                            body: Center(child: CircularProgressIndicator()));
+                          body: Center(child: CircularProgressIndicator()),
+                        );
                       }
-
                       if (catState is CategoryError) {
                         return Scaffold(
-                            appBar: AppBar(title: const Text('Quizzes')),
-                            body: Center(child: Text(catState.message)));
+                          appBar: AppBar(title: const Text('Quizzes')),
+                          body: Center(child: Text(catState.message)),
+                        );
                       }
-
                       if (catState is CategoryLoaded) {
-                        final quizzes = catState.quizzes;
                         return CategoryQuizzesPage(
-                            categoryId: categoryId,
-                            level: level,
-                            quizzes: quizzes);
+                          categoryId: categoryId,
+                          level: level,
+                          quizzes: catState.quizzes,
+                        );
                       }
-
                       return const SizedBox.shrink();
                     },
                   );
@@ -309,7 +267,6 @@ class AppRouter {
           pageBuilder: (context, state) {
             final quizId = state.pathParameters['id']!;
             final restore = state.uri.queryParameters['restore'] == 'true';
-
             return MaterialPage<void>(
               key: state.pageKey,
               child: BlocProvider<QuizBloc>(
@@ -333,13 +290,12 @@ class AppRouter {
               pageBuilder: (context, state) {
                 final quizId = state.pathParameters['id']!;
                 final attemptId = state.uri.queryParameters['attemptId'] ?? '';
-                final queryParams = state.uri.queryParameters;
                 return MaterialPage<void>(
                   key: state.pageKey,
                   child: QuizResultScreen(
                     quizId: quizId,
                     attemptId: attemptId,
-                    queryParams: queryParams,
+                    queryParams: state.uri.queryParameters,
                   ),
                 );
               },
@@ -350,13 +306,12 @@ class AppRouter {
               pageBuilder: (context, state) {
                 final quizId = state.pathParameters['id']!;
                 final attemptId = state.uri.queryParameters['attemptId'] ?? '';
-                final queryParams = state.uri.queryParameters;
                 return MaterialPage<void>(
                   key: state.pageKey,
                   child: QuizReviewScreen(
                     quizId: quizId,
                     attemptId: attemptId,
-                    queryParams: queryParams,
+                    queryParams: state.uri.queryParameters,
                   ),
                 );
               },
@@ -369,17 +324,17 @@ class AppRouter {
           name: 'attemptReview',
           pageBuilder: (context, state) {
             final attemptId = state.pathParameters['attemptId']!;
-            final queryParams = state.uri.queryParameters;
             return MaterialPage<void>(
               key: state.pageKey,
               child: QuizReviewScreen(
                 attemptId: attemptId,
-                queryParams: queryParams,
+                queryParams: state.uri.queryParameters,
               ),
             );
           },
         ),
       ],
+
       errorBuilder: (context, state) => Scaffold(
         body: Center(
           child: Column(
@@ -393,8 +348,9 @@ class AppRouter {
               Text(state.error.toString(), textAlign: TextAlign.center),
               const SizedBox(height: 24),
               ElevatedButton(
-                  onPressed: () => context.go(home),
-                  child: const Text('Retour à l\'accueil')),
+                onPressed: () => context.go(home),
+                child: const Text('Retour à l\'accueil'),
+              ),
             ],
           ),
         ),
@@ -403,10 +359,9 @@ class AppRouter {
   }
 }
 
-/// Wrapper pour le QuizScreen avec gestion du WillPopScope
+/// Wrapper QuizScreen avec confirmation de sortie
 class _QuizScreenWrapper extends StatelessWidget {
   final String quizId;
-
   const _QuizScreenWrapper({required this.quizId});
 
   @override
@@ -419,15 +374,10 @@ class _QuizScreenWrapper extends StatelessWidget {
           builder: (dialogContext) => AlertDialog(
             title: Row(
               children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 28,
-                ),
+                Icon(Icons.info_outline_rounded,
+                    color: Theme.of(context).colorScheme.primary, size: 28),
                 const SizedBox(width: 12),
-                const Expanded(
-                  child: Text('Quitter le quiz ?'),
-                ),
+                const Expanded(child: Text('Quitter le quiz ?')),
               ],
             ),
             content: const Text(
@@ -437,23 +387,18 @@ class _QuizScreenWrapper extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: Text(
-                  'Quitter',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                child: Text('Quitter',
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                        fontWeight: FontWeight.w500)),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 ),
                 child: const Text('Continuer le quiz'),
               ),
@@ -461,15 +406,10 @@ class _QuizScreenWrapper extends StatelessWidget {
             actionsAlignment: MainAxisAlignment.spaceBetween,
           ),
         );
-
-        if (shouldPop == true) {
-          // Retourner à l'accueil
-          if (context.mounted) {
-            context.go(AppRouter.home);
-          }
-          return false; // Empêcher le pop par défaut
+        if (shouldPop == true && context.mounted) {
+          context.go(AppRouter.home);
         }
-        return false; // Ne pas pop
+        return false;
       },
       child: QuizScreen(quizId: quizId),
     );
