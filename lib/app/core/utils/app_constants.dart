@@ -9,8 +9,8 @@ class AppConstants {
   static const String baseUrl = 'https://backend-quiz-0ab2.onrender.com';
 
   // Timeouts
-  static const Duration connectTimeout = Duration(seconds: 20);
-  static const Duration receiveTimeout = Duration(seconds: 20);
+  static const Duration connectTimeout = Duration(seconds: 15);
+  static const Duration receiveTimeout = Duration(seconds: 15);
 
   // ========================================================================
   // STORAGE (SharedPreferences)
@@ -26,14 +26,14 @@ class AppConstants {
 
   // Keys pour la feature Quiz (SharedPreferences)
   // Tentative en cours par quiz: quiz_attempt_in_progress_{quizId}
-  static const String quizAttemptInProgressKeyPrefix = 'quiz_attempt_in_progress_';
+  static const String quizAttemptInProgressKeyPrefix =
+      'quiz_attempt_in_progress_';
 
   // File d'attente des tentatives pending (liste JSON)
   static const String quizPendingSubmissionsKey = 'quiz_pending_submissions';
 
   // Historique local (optionnel)
   static const String quizAttemptsCacheKey = 'quiz_attempts_cache';
-
 
   // ========================================================================
   // NIVEAUX DE QUIZ
