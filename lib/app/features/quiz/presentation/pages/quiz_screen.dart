@@ -260,149 +260,162 @@ class _QuizScreenState extends State<QuizScreen> {
                     ),
                   ),
                 ),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'Question ${_currentIndex + 1}/${questions.length}',
+                          style: context.textTheme.titleSmall?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getLevelColor(quiz.level, context)
+                              .withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          quiz.level.capitalize,
+                          style: context.textTheme.labelLarge?.copyWith(
+                            color: _getLevelColor(quiz.level, context),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 32),
 
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 600),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                'Question ${_currentIndex + 1}/${questions.length}',
-                                style: context.textTheme.titleSmall?.copyWith(
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            // Question
+                            Text(
+                              q.text,
+                              textAlign: TextAlign.center,
+                              style: context.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _getLevelColor(quiz.level, context)
-                                    .withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                quiz.level.capitalize,
-                                style: context.textTheme.labelLarge?.copyWith(
-                                  color: _getLevelColor(quiz.level, context),
+
+                            const SizedBox(height: 8),
+
+                            // Indicateur de réponses multiples
+                            if (q.allowsMultipleAnswers)
+                              Text(
+                                'Plusieurs réponses possibles',
+                                textAlign: TextAlign.center,
+                                style: context.textTheme.bodySmall?.copyWith(
+                                  color: infoColor,
+                                  fontStyle: FontStyle.italic,
                                 ),
                               ),
+
+                            const SizedBox(height: 32),
+
+                            // Réponses
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: q.answers.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final ans = q.answers[index];
+                                final isSelected = selected.contains(ans.id);
+
+                                if (q.allowsMultipleAnswers) {
+                                  return _buildCheckboxAnswer(
+                                    bloc: bloc,
+                                    answer: ans,
+                                    isSelected: isSelected,
+                                    questionId: q.id,
+                                    currentSelected: selected,
+                                    colorScheme: colorScheme,
+                                  );
+                                } else {
+                                  return _buildRadioAnswer(
+                                    bloc: bloc,
+                                    answer: ans,
+                                    isSelected: isSelected,
+                                    questionId: q.id,
+                                    currentSelected: selected,
+                                    colorScheme: colorScheme,
+                                  );
+                                }
+                              },
                             ),
+
+                            const SizedBox(height: 32),
                           ],
                         ),
-
-                        const SizedBox(height: 24),
-
-                        // Question
-                        Text(
-                          q.text,
-                          style: context.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        if (q.allowsMultipleAnswers)
-                          Text(
-                            'Plusieurs réponses possibles',
-                            style: context.textTheme.bodySmall?.copyWith(
-                              color: infoColor,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-
-                        const SizedBox(height: 24),
-
-                        // Réponses
-                        Expanded(
-                          child: ListView.separated(
-                            itemCount: q.answers.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 8),
-                            itemBuilder: (context, index) {
-                              final ans = q.answers[index];
-                              final isSelected = selected.contains(ans.id);
-
-                              if (q.allowsMultipleAnswers) {
-                                return _buildCheckboxAnswer(
-                                  bloc: bloc,
-                                  answer: ans,
-                                  isSelected: isSelected,
-                                  questionId: q.id,
-                                  currentSelected: selected,
-                                  colorScheme: colorScheme,
-                                );
-                              } else {
-                                return _buildRadioAnswer(
-                                  bloc: bloc,
-                                  answer: ans,
-                                  isSelected: isSelected,
-                                  questionId: q.id,
-                                  currentSelected: selected,
-                                  colorScheme: colorScheme,
-                                );
-                              }
-                            },
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Navigation
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            if (_currentIndex > 0)
-                              OutlinedButton.icon(
-                                onPressed: _onPrevious,
-                                icon: const Icon(Icons.arrow_back),
-                                label: const Text('Précédent'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: colorScheme.primary,
-                                ),
-                              )
-                            else
-                              const SizedBox.shrink(),
-                            if (_currentIndex < questions.length - 1)
-                              ElevatedButton.icon(
-                                onPressed: hasAnswer ? _onNext : null,
-                                icon: const Icon(Icons.arrow_forward),
-                                label: const Text('Suivant'),
-                              )
-                            else
-                              ElevatedButton.icon(
-                                onPressed: hasAnswer
-                                    ? () => _onSubmit(bloc, state)
-                                    : null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.success,
-                                ),
-                                icon: const Icon(Icons.check_circle),
-                                label: const Text('Terminer'),
-                              ),
-                          ],
-                        ),
-                      ],
+                      ),
                     ),
+                  ),
+                ),
+
+                // Navigation
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (_currentIndex > 0)
+                        OutlinedButton.icon(
+                          onPressed: _onPrevious,
+                          icon: const Icon(Icons.arrow_back),
+                          label: const Text('Précédent'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colorScheme.primary,
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      if (_currentIndex < questions.length - 1)
+                        ElevatedButton.icon(
+                          onPressed: hasAnswer ? _onNext : null,
+                          icon: const Icon(Icons.arrow_forward),
+                          label: const Text('Suivant'),
+                        )
+                      else
+                        ElevatedButton.icon(
+                          onPressed:
+                              hasAnswer ? () => _onSubmit(bloc, state) : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.success,
+                          ),
+                          icon: const Icon(Icons.check_circle),
+                          label: const Text('Terminer'),
+                        ),
+                    ],
                   ),
                 ),
               ],
