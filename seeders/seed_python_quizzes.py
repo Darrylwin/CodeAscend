@@ -25,7 +25,7 @@ PYTHON_QUIZ_DATA = {
     "category": {
         "name": "Python",
         "description": "Quiz pour maîtriser la programmation Python",
-        "icon_url": "https://www.python.org/static/community_logos/python-logo.png",
+        "icon_url": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/dart/dart-original.svg",
         "is_active": True,
     },
     "quizzes": {
