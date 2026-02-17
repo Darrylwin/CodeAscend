@@ -2119,7 +2119,7 @@ SWIFT_DATA = {
                     {"text": "Un observateur de propriétés", "is_correct": False}
                 ]},
                 {"text": "Qu'est-ce que le KeyPath en Swift?", "answers": [
-                    {"text": "Une référence typée à une propriété d'un type (ex: \Person.nom)", "is_correct": True},
+                    {"text": "Une référence typée à une propriété d'un type (ex: Person.nom)", "is_correct": True},
                     {"text": "Un chemin de clé pour les dictionnaires", "is_correct": False},
                     {"text": "Une route de navigation", "is_correct": False},
                     {"text": "Un identifiant de clé de cryptographie", "is_correct": False}
