@@ -724,6 +724,211 @@ TYPESCRIPT_DATA = {
     },
 }
 
+DART_DATA = {
+    "category": {
+        "name": "Dart",
+        "description": "Quiz pour maîtriser Dart, le langage de Flutter",
+        "icon_url": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/dart/dart-original.svg",
+    },
+    "quizzes": {
+        "debutant": {
+            "title": "Dart - Débutant", "level": QuizLevel.debutant, "status": QuizStatus.published,
+            "questions": [
+                {"text": "Quel est le point d'entrée d'un programme Dart?", "answers": [
+                    {"text": "void main() {}", "is_correct": True},
+                    {"text": "int main() {}", "is_correct": False},
+                    {"text": "main() {}", "is_correct": True},
+                    {"text": "void start() {}", "is_correct": False}
+                ]},
+                {"text": "Comment déclarer une variable en Dart?", "answers": [
+                    {"text": "var nom = 'valeur'", "is_correct": True},
+                    {"text": "let nom = 'valeur'", "is_correct": False},
+                    {"text": "String nom = 'valeur'", "is_correct": True},
+                    {"text": "const nom = 'valeur'", "is_correct": False}
+                ]},
+                {"text": "Quelle est la différence entre final et const?", "answers": [
+                    {"text": "final est initialisé à l'exécution (une fois), const à la compilation", "is_correct": True},
+                    {"text": "const peut changer, final non", "is_correct": False},
+                    {"text": "final est pour les classes, const pour les variables", "is_correct": False},
+                    {"text": "Aucune différence", "is_correct": False}
+                ]},
+                {"text": "Comment créer une fonction en Dart?", "answers": [
+                    {"text": "Type nom(paramètres) { }", "is_correct": True},
+                    {"text": "function nom() { }", "is_correct": False},
+                    {"text": "def nom():", "is_correct": False},
+                    {"text": "func nom() { }", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que les types optionnels en Dart (null safety)?", "answers": [
+                    {"text": "Les types sont non-nullables par défaut, ? pour nullable", "is_correct": True},
+                    {"text": "Tous les types sont nullables par défaut", "is_correct": False},
+                    {"text": "Dart n'a pas de null safety", "is_correct": False},
+                    {"text": "On utilise Optional<T> comme en Java", "is_correct": False}
+                ]},
+                {"text": "Comment créer une liste en Dart?", "answers": [
+                    {"text": "var list = [1, 2, 3]", "is_correct": True},
+                    {"text": "var list = List<int>()", "is_correct": True},
+                    {"text": "var list = new Array(1, 2, 3)", "is_correct": False},
+                    {"text": "var list = []", "is_correct": True}
+                ]},
+                {"text": "Qu'est-ce que les futures en Dart?", "answers": [
+                    {"text": "Un objet qui représente un résultat asynchrone", "is_correct": True},
+                    {"text": "Une classe pour les dates futures", "is_correct": False},
+                    {"text": "Un type de variable temporaire", "is_correct": False},
+                    {"text": "Une boucle infinie", "is_correct": False}
+                ]},
+                {"text": "Comment gérer les exceptions en Dart?", "answers": [
+                    {"text": "try { } on Exception catch (e) { } finally { }", "is_correct": True},
+                    {"text": "try { } catch (Exception e) { }", "is_correct": False},
+                    {"text": "begin { } rescue { }", "is_correct": False},
+                    {"text": "handle { }", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le cascade operator (..) en Dart?", "answers": [
+                    {"text": "Permet d'enchaîner plusieurs opérations sur le même objet", "is_correct": True},
+                    {"text": "Un opérateur de comparaison", "is_correct": False},
+                    {"text": "Un opérateur de propagation", "is_correct": False},
+                    {"text": "Un commentaire", "is_correct": False}
+                ]},
+                {"text": "Comment créer une classe en Dart?", "answers": [
+                    {"text": "class MaClasse { }", "is_correct": True},
+                    {"text": "interface MaClasse { }", "is_correct": False},
+                    {"text": "struct MaClasse { }", "is_correct": False},
+                    {"text": "MaClasse = class { }", "is_correct": False}
+                ]},
+            ],
+        },
+        "intermediaire": {
+            "title": "Dart - Intermédiaire", "level": QuizLevel.intermediaire, "status": QuizStatus.published,
+            "questions": [
+                {"text": "Qu'est-ce que async/await en Dart?", "answers": [
+                    {"text": "Permet d'écrire du code asynchrone de manière synchrone", "is_correct": True},
+                    {"text": "Exécute du code en parallèle", "is_correct": False},
+                    {"text": "Crée des threads", "is_correct": False},
+                    {"text": "Gère les événements utilisateur", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce qu'un mixin en Dart?", "answers": [
+                    {"text": "Une classe sans constructeur pour réutiliser du code dans plusieurs classes", "is_correct": True},
+                    {"text": "Une interface avec implémentation", "is_correct": False},
+                    {"text": "Un type de données", "is_correct": False},
+                    {"text": "Une fonction d'ordre supérieur", "is_correct": False}
+                ]},
+                {"text": "Comment fonctionne l'héritage en Dart?", "answers": [
+                    {"text": "extends pour une seule classe, implements pour les interfaces", "is_correct": True},
+                    {"text": "Héritage multiple possible avec extends", "is_correct": False},
+                    {"text": "Dart n'a pas d'héritage", "is_correct": False},
+                    {"text": "with pour l'héritage", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que les extensions en Dart?", "answers": [
+                    {"text": "Ajouter des fonctionnalités à des classes existantes", "is_correct": True},
+                    {"text": "Étendre une classe existante", "is_correct": False},
+                    {"text": "Un fichier de configuration", "is_correct": False},
+                    {"text": "Une bibliothèque externe", "is_correct": False}
+                ]},
+                {"text": "Comment utiliser les génériques en Dart?", "answers": [
+                    {"text": "class MaClasse<T> { T value; }", "is_correct": True},
+                    {"text": "class MaClasse(T) { }", "is_correct": False},
+                    {"text": "class MaClasse<Type> { }", "is_correct": False},
+                    {"text": "Dart n'a pas de génériques", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que les isolates en Dart?", "answers": [
+                    {"text": "Des threads indépendants avec leur propre mémoire", "is_correct": True},
+                    {"text": "Des widgets isolés", "is_correct": False},
+                    {"text": "Des classes privées", "is_correct": False},
+                    {"text": "Un pattern de conception", "is_correct": False}
+                ]},
+                {"text": "Comment créer une factory constructor?", "answers": [
+                    {"text": "factory MaClasse() { return instance; }", "is_correct": True},
+                    {"text": "static MaClasse() { }", "is_correct": False},
+                    {"text": "new MaClasse()", "is_correct": False},
+                    {"text": "constructor MaClasse()", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que les streams en Dart?", "answers": [
+                    {"text": "Un flux de données asynchrones", "is_correct": True},
+                    {"text": "Un type de fichier", "is_correct": False},
+                    {"text": "Une connexion réseau", "is_correct": False},
+                    {"text": "Un buffer mémoire", "is_correct": False}
+                ]},
+                {"text": "Comment fonctionne le package manager pub?", "answers": [
+                    {"text": "Gère les dépendances via pubspec.yaml", "is_correct": True},
+                    {"text": "Compile le code Dart", "is_correct": False},
+                    {"text": "Crée des projets Dart", "is_correct": False},
+                    {"text": "Teste les applications", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que les annotations en Dart?", "answers": [
+                    {"text": "Des métadonnées pour les classes/méthodes (ex: @override)", "is_correct": True},
+                    {"text": "Des commentaires spéciaux", "is_correct": False},
+                    {"text": "Des décorateurs comme en Python", "is_correct": False},
+                    {"text": "Des types de données", "is_correct": False}
+                ]},
+            ],
+        },
+        "avance": {
+            "title": "Dart - Avancé", "level": QuizLevel.avance, "status": QuizStatus.published,
+            "questions": [
+                {"text": "Qu'est-ce que le tree shaking en Dart?", "answers": [
+                    {"text": "Supprime le code mort à la compilation", "is_correct": True},
+                    {"text": "Optimise l'arbre des widgets", "is_correct": False},
+                    {"text": "Une technique de garbage collection", "is_correct": False},
+                    {"text": "Un algorithme de tri", "is_correct": False}
+                ]},
+                {"text": "Comment fonctionne le AOT (Ahead Of Time) compilation?", "answers": [
+                    {"text": "Compile le code Dart en code natif avant l'exécution", "is_correct": True},
+                    {"text": "Compile à la volée pendant l'exécution", "is_correct": False},
+                    {"text": "Interprète le code ligne par ligne", "is_correct": False},
+                    {"text": "Génère du bytecode Java", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le Dart DevTools?", "answers": [
+                    {"text": "Une suite d'outils de debugging et profiling", "is_correct": True},
+                    {"text": "Un IDE pour Dart", "is_correct": False},
+                    {"text": "Un compilateur en ligne", "is_correct": False},
+                    {"text": "Un gestionnaire de packages", "is_correct": False}
+                ]},
+                {"text": "Comment implémenter le pattern Singleton en Dart?", "answers": [
+                    {"text": "factory constructor avec instance statique", "is_correct": True},
+                    {"text": "class Singleton { }", "is_correct": False},
+                    {"text": "static final instance = Singleton._();", "is_correct": True},
+                    {"text": "Avec un mixin", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le zone en Dart?", "answers": [
+                    {"text": "Un contexte d'exécution qui capture les opérations asynchrones", "is_correct": True},
+                    {"text": "Une région mémoire", "is_correct": False},
+                    {"text": "Un type de variable", "is_correct": False},
+                    {"text": "Un fichier de configuration", "is_correct": False}
+                ]},
+                {"text": "Comment fonctionne la réflexion (mirrors) en Dart?", "answers": [
+                    {"text": "Permet d'inspecter les types à l'exécution (mais limitée)", "is_correct": True},
+                    {"text": "Refléter des images", "is_correct": False},
+                    {"text": "Un pattern de design", "is_correct": False},
+                    {"text": "Une bibliothèque graphique", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que les callable classes en Dart?", "answers": [
+                    {"text": "Classes avec méthode call() pouvant être appelées comme des fonctions", "is_correct": True},
+                    {"text": "Classes sans constructeur", "is_correct": False},
+                    {"text": "Classes abstraites", "is_correct": False},
+                    {"text": "Classes avec callback", "is_correct": False}
+                ]},
+                {"text": "Comment gérer la mémoire avec les weak references?", "answers": [
+                    {"text": "Expando pour attacher des données sans empêcher le GC", "is_correct": True},
+                    {"text": "weak keyword", "is_correct": False},
+                    {"text": "SoftReference<T>", "is_correct": False},
+                    {"text": "Dart gère automatiquement", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le sound null safety?", "answers": [
+                    {"text": "Garantie que les types non-nullables ne seront jamais null à l'exécution", "is_correct": True},
+                    {"text": "Un système audio", "is_correct": False},
+                    {"text": "Une vérification de syntaxe", "is_correct": False},
+                    {"text": "Un plugin de sécurité", "is_correct": False}
+                ]},
+                {"text": "Comment optimiser les performances avec const constructors?", "answers": [
+                    {"text": "Crée des instances canoniques réutilisables à la compilation", "is_correct": True},
+                    {"text": "Accélère l'exécution du code", "is_correct": False},
+                    {"text": "Réduit la taille du binaire", "is_correct": False},
+                    {"text": "Améliore le hot reload", "is_correct": False}
+                ]},
+            ],
+        },
+    },
+}
+
 JAVA_DATA = {
     "category": {
         "name": "Java",
@@ -5870,6 +6075,211 @@ FLUTTER_DATA = {
     },
 }
 
+REACT_NATIVE_DATA = {
+    "category": {
+        "name": "React Native",
+        "description": "Quiz pour maîtriser React Native et le développement mobile cross-platform",
+        "icon_url": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg",
+    },
+    "quizzes": {
+        "debutant": {
+            "title": "React Native - Débutant", "level": QuizLevel.debutant, "status": QuizStatus.published,
+            "questions": [
+                {"text": "Qu'est-ce que React Native?", "answers": [
+                    {"text": "Un framework pour créer des applications mobiles natives avec JavaScript/React", "is_correct": True},
+                    {"text": "Une version mobile de React", "is_correct": False},
+                    {"text": "Un framework pour les PWA", "is_correct": False},
+                    {"text": "Une bibliothèque UI pour React", "is_correct": False}
+                ]},
+                {"text": "Quelle est la différence entre React et React Native?", "answers": [
+                    {"text": "React utilise des composants web, React Native des composants natifs", "is_correct": True},
+                    {"text": "React Native est plus lent", "is_correct": False},
+                    {"text": "React a plus de fonctionnalités", "is_correct": False},
+                    {"text": "Aucune différence", "is_correct": False}
+                ]},
+                {"text": "Comment créer un composant de base dans React Native?", "answers": [
+                    {"text": "import { View, Text } from 'react-native'", "is_correct": True},
+                    {"text": "import { div, span } from 'react'", "is_correct": False},
+                    {"text": "import { Container, Label } from 'react-native'", "is_correct": False},
+                    {"text": "import React, { Component } from 'react'", "is_correct": False}
+                ]},
+                {"text": "Quel composant React Native est équivalent à <div> en HTML?", "answers": [
+                    {"text": "<View>", "is_correct": True},
+                    {"text": "<Div>", "is_correct": False},
+                    {"text": "<Container>", "is_correct": False},
+                    {"text": "<Box>", "is_correct": False}
+                ]},
+                {"text": "Comment styliser un composant en React Native?", "answers": [
+                    {"text": "Avec la prop style et StyleSheet.create()", "is_correct": True},
+                    {"text": "Avec des fichiers CSS", "is_correct": False},
+                    {"text": "Avec className", "is_correct": False},
+                    {"text": "Avec des inline styles uniquement", "is_correct": False}
+                ]},
+                {"text": "Quelle commande crée un nouveau projet React Native?", "answers": [
+                    {"text": "npx react-native init MonProjet", "is_correct": True},
+                    {"text": "npm create react-native-app", "is_correct": False},
+                    {"text": "react-native new MonProjet", "is_correct": False},
+                    {"text": "expo init MonProjet (avec Expo)", "is_correct": True}
+                ]},
+                {"text": "Comment gérer la navigation dans React Native?", "answers": [
+                    {"text": "Avec React Navigation (stack, tabs, drawer)", "is_correct": True},
+                    {"text": "Avec React Router", "is_correct": False},
+                    {"text": "Avec des liens HTML", "is_correct": False},
+                    {"text": "Navigation native automatique", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le bridge dans React Native?", "answers": [
+                    {"text": "Le mécanisme de communication entre JS et le code natif", "is_correct": True},
+                    {"text": "Un pont entre iOS et Android", "is_correct": False},
+                    {"text": "Un outil de debugging", "is_correct": False},
+                    {"text": "Une bibliothèque de composants", "is_correct": False}
+                ]},
+                {"text": "Comment lancer l'application sur un émulateur?", "answers": [
+                    {"text": "npx react-native run-android ou run-ios", "is_correct": True},
+                    {"text": "npm start android", "is_correct": False},
+                    {"text": "react-native emulate", "is_correct": False},
+                    {"text": "expo start", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le hot reload dans React Native?", "answers": [
+                    {"text": "Recharge les modifications sans perdre l'état", "is_correct": True},
+                    {"text": "Redémarre complètement l'app", "is_correct": False},
+                    {"text": "Recompile tout le projet", "is_correct": False},
+                    {"text": "Met à jour le bundle JS", "is_correct": False}
+                ]},
+            ],
+        },
+        "intermediaire": {
+            "title": "React Native - Intermédiaire", "level": QuizLevel.intermediaire, "status": QuizStatus.published,
+            "questions": [
+                {"text": "Qu'est-ce que les composants natifs personnalisés?", "answers": [
+                    {"text": "Des composants écrits en code natif (Swift/Kotlin) exposés à JS", "is_correct": True},
+                    {"text": "Des composants React avec styles natifs", "is_correct": False},
+                    {"text": "Des composants de la communauté", "is_correct": False},
+                    {"text": "Des composants générés automatiquement", "is_correct": False}
+                ]},
+                {"text": "Comment gérer les permissions sur iOS/Android?", "answers": [
+                    {"text": "Avec des bibliothèques comme react-native-permissions", "is_correct": True},
+                    {"text": "Les permissions sont automatiques", "is_correct": False},
+                    {"text": "Uniquement via le code natif", "is_correct": False},
+                    {"text": "React Native gère nativement", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le Flexbox dans React Native?", "answers": [
+                    {"text": "Le système de layout par défaut (inspiré du CSS Flexbox)", "is_correct": True},
+                    {"text": "Une bibliothèque de composants flexibles", "is_correct": False},
+                    {"text": "Un outil de debugging", "is_correct": False},
+                    {"text": "Un framework CSS", "is_correct": False}
+                ]},
+                {"text": "Comment accéder aux APIs natives (caméra, GPS)?", "answers": [
+                    {"text": "Avec des modules natifs ou des bibliothèques comme expo", "is_correct": True},
+                    {"text": "Directement depuis JS", "is_correct": False},
+                    {"text": "Avec fetch() vers l'API native", "is_correct": False},
+                    {"text": "React Native inclut toutes les APIs", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le state management dans React Native?", "answers": [
+                    {"text": "Redux, MobX, Zustand, ou Context API comme React", "is_correct": True},
+                    {"text": "Un state manager spécifique mobile", "is_correct": False},
+                    {"text": "AsyncStorage pour le state", "is_correct": False},
+                    {"text": "Pas besoin de state management", "is_correct": False}
+                ]},
+                {"text": "Comment gérer les assets (images, fonts)?", "answers": [
+                    {"text": "Avec require() ou import pour les assets locaux", "is_correct": True},
+                    {"text": "Avec des URLs web uniquement", "is_correct": False},
+                    {"text": "En les copiant dans le dossier assets", "is_correct": False},
+                    {"text": "Automatiquement détectés", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que la différence entre Expo et React Native CLI?", "answers": [
+                    {"text": "Expo offre plus de fonctionnalités prêtes à l'emploi mais moins de flexibilité", "is_correct": True},
+                    {"text": "Expo est plus lent", "is_correct": False},
+                    {"text": "React Native CLI est plus simple", "is_correct": False},
+                    {"text": "Aucune différence", "is_correct": False}
+                ]},
+                {"text": "Comment optimiser les performances d'une FlatList?", "answers": [
+                    {"text": "getItemLayout, keyExtractor, initialNumToRender", "is_correct": True},
+                    {"text": "En utilisant ScrollView", "is_correct": False},
+                    {"text": "En limitant le nombre d'items", "is_correct": False},
+                    {"text": "Le caching automatique", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le Hermes engine?", "answers": [
+                    {"text": "Un moteur JS optimisé pour React Native (réduit le temps de démarrage)", "is_correct": True},
+                    {"text": "Un éditeur de code", "is_correct": False},
+                    {"text": "Une bibliothèque UI", "is_correct": False},
+                    {"text": "Un compilateur TypeScript", "is_correct": False}
+                ]},
+                {"text": "Comment tester une application React Native?", "answers": [
+                    {"text": "Avec Jest pour les tests unitaires et Detox pour les tests E2E", "is_correct": True},
+                    {"text": "Uniquement sur appareil physique", "is_correct": False},
+                    {"text": "Avec React Native Testing Library", "is_correct": False},
+                    {"text": "Pas de tests possibles", "is_correct": False}
+                ]},
+            ],
+        },
+        "avance": {
+            "title": "React Native - Avancé", "level": QuizLevel.avance, "status": QuizStatus.published,
+            "questions": [
+                {"text": "Qu'est-ce que le Native Modules?", "answers": [
+                    {"text": "Du code natif (Java/Objective-C) exposé à JavaScript", "is_correct": True},
+                    {"text": "Des composants React natifs", "is_correct": False},
+                    {"text": "Des modules npm pour mobile", "is_correct": False},
+                    {"text": "Des extensions Chrome", "is_correct": False}
+                ]},
+                {"text": "Comment fonctionne le threading dans React Native?", "answers": [
+                    {"text": "Thread JS, thread UI natif, thread de background", "is_correct": True},
+                    {"text": "Un seul thread pour tout", "is_correct": False},
+                    {"text": "Multi-threading automatique", "is_correct": False},
+                    {"text": "Pas de threading", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le code push (CodePush)?", "answers": [
+                    {"text": "Mettre à jour le bundle JS sans passer par l'App Store", "is_correct": True},
+                    {"text": "Pousser du code vers GitHub", "is_correct": False},
+                    {"text": "Déployer sur les stores", "is_correct": False},
+                    {"text": "Un outil de CI/CD", "is_correct": False}
+                ]},
+                {"text": "Comment implémenter le deep linking?", "answers": [
+                    {"text": "Avec Linking API et configuration des schémas d'URL", "is_correct": True},
+                    {"text": "Avec des liens HTML", "is_correct": False},
+                    {"text": "Automatique dans React Native", "is_correct": False},
+                    {"text": "Uniquement avec Firebase", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le Turbo Modules (New Architecture)?", "answers": [
+                    {"text": "Nouvelle architecture plus performante pour les modules natifs", "is_correct": True},
+                    {"text": "Des modules plus rapides", "is_correct": False},
+                    {"text": "Un compilateur JIT", "is_correct": False},
+                    {"text": "Une bibliothèque d'optimisation", "is_correct": False}
+                ]},
+                {"text": "Comment gérer le rendu côté serveur avec React Native?", "answers": [
+                    {"text": "React Native n'a pas de SSR, mais peut utiliser Next.js pour le web", "is_correct": True},
+                    {"text": "Avec React Native Web", "is_correct": False},
+                    {"text": "SSR possible avec Expo", "is_correct": False},
+                    {"text": "Avec des services cloud", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le Fabric (New Architecture)?", "answers": [
+                    {"text": "Le nouveau système de rendu (réécriture du UI manager)", "is_correct": True},
+                    {"text": "Une bibliothèque UI", "is_correct": False},
+                    {"text": "Un outil de fabrication", "is_correct": False},
+                    {"text": "Un compilateur", "is_correct": False}
+                ]},
+                {"text": "Comment optimiser la taille de l'application?", "answers": [
+                    {"text": "Hermes, ProGuard, suppression des librairies inutilisées, assets optimisés", "is_correct": True},
+                    {"text": "React Native est déjà optimisé", "is_correct": False},
+                    {"text": "En utilisant Expo", "is_correct": False},
+                    {"text": "En compressant le bundle", "is_correct": False}
+                ]},
+                {"text": "Qu'est-ce que le JSI (JavaScript Interface)?", "answers": [
+                    {"text": "Une interface plus performante entre JS et natif (sans bridge)", "is_correct": True},
+                    {"text": "Un nouveau langage", "is_correct": False},
+                    {"text": "Un standard JavaScript", "is_correct": False},
+                    {"text": "Une bibliothèque de compatibilité", "is_correct": False}
+                ]},
+                {"text": "Comment gérer les mises à jour de l'application?", "answers": [
+                    {"text": "CodePush pour les bundles JS, App Store/Play Store pour les binaires", "is_correct": True},
+                    {"text": "Uniquement via les stores", "is_correct": False},
+                    {"text": "Mise à jour automatique", "is_correct": False},
+                    {"text": "Avec des scripts shell", "is_correct": False}
+                ]},
+            ],
+        },
+    },
+}
+
 # 9. CLOUD ET INFRASTRUCTURE
 # -----------------------------------------------------------------------------
 
@@ -6305,6 +6715,7 @@ if __name__ == "__main__":
         PYTHON_DATA,
         JAVASCRIPT_DATA,
         TYPESCRIPT_DATA,
+        DART_DATA,
         JAVA_DATA,
         GO_DATA,
         RUST_DATA,
@@ -6344,6 +6755,7 @@ if __name__ == "__main__":
         
         # Mobile et multiplateforme
         FLUTTER_DATA,
+        REACT_NATIVE_DATA,
         
         # Cloud et infrastructure
         AWS_DATA,
