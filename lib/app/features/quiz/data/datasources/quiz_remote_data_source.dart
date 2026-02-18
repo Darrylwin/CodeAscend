@@ -245,7 +245,8 @@ class QuizRemoteDataSourceImpl implements QuizRemoteDataSource {
     // Parser les questions et réponses pour extraire les UserAnswer ET créer les QuestionEntity
     final answers = <UserAnswer>[];
     final questions = <QuestionEntity>[];
-    int correctCount = 0;
+
+    int correctQuestionsCount = 0;
 
     for (final questionMap in questionsData.cast<Map<String, dynamic>>()) {
       final questionId = questionMap['id'] as String;
@@ -254,8 +255,8 @@ class QuizRemoteDataSourceImpl implements QuizRemoteDataSource {
       final answersJson = (questionMap['answers'] as List<dynamic>?) ?? [];
 
       final selectedAnswerIds = <String>[];
+      final correctAnswerIds = <String>[];
       final answerEntities = <AnswerEntity>[];
-      int correctAnswersForQuestion = 0;
 
       for (final answerMap in answersJson.cast<Map<String, dynamic>>()) {
         final answerId = answerMap['id'] as String;
@@ -273,20 +274,24 @@ class QuizRemoteDataSourceImpl implements QuizRemoteDataSource {
           isCorrect: isCorrect,
         ));
 
-        // Collecter les réponses sélectionnées
+        // Collecter les réponses sélectionnées et correctes
         if (userSelected) {
           selectedAnswerIds.add(answerId);
         }
-
-        // Compter les bonnes réponses pour détecter QCM multiple
         if (isCorrect) {
-          correctAnswersForQuestion++;
+          correctAnswerIds.add(answerId);
         }
+      }
 
-        // Compter les réponses correctes sélectionnées
-        if (userSelected && isCorrect) {
-          correctCount++;
-        }
+      // Vérifier si cette question a été correctement répondue
+      // (toutes les bonnes réponses sélectionnées ET aucune mauvaise)
+      final selectedSet = selectedAnswerIds.toSet();
+      final correctSet = correctAnswerIds.toSet();
+      final isQuestionCorrect = selectedSet.length == correctSet.length &&
+          selectedSet.containsAll(correctSet);
+
+      if (isQuestionCorrect) {
+        correctQuestionsCount++;
       }
 
       // Créer le UserAnswer pour cette question
@@ -301,12 +306,12 @@ class QuizRemoteDataSourceImpl implements QuizRemoteDataSource {
         quizId: quizId,
         text: questionText,
         order: questionOrder,
-        allowsMultipleAnswers: correctAnswersForQuestion > 1,
+        allowsMultipleAnswers: correctAnswerIds.length > 1,
         answers: answerEntities,
       ));
     }
 
-    // Créer l'attempt
+    // Créer l'attempt avec le nombre de QUESTIONS correctes
     final attempt = QuizAttemptEntity(
       id: attemptIdRemote,
       quizId: quizId,
@@ -315,7 +320,8 @@ class QuizRemoteDataSourceImpl implements QuizRemoteDataSource {
       passed: passed,
       completedAt: completedAt,
       answers: answers,
-      correctAnswersCount: correctCount,
+      correctAnswersCount:
+          correctQuestionsCount, // Nombre de questions correctes
       totalQuestions: questionsData.length,
     );
 
