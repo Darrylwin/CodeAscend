@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/themes/colors/app_color.dart';
 import '../../../../core/utils/app_extensions.dart';
+import '../../../../core/utils/route_observer.dart';
 import '../bloc/user_stats_bloc.dart';
 import '../bloc/user_stats_event.dart';
 import '../bloc/user_stats_state.dart';
@@ -18,19 +19,56 @@ class UserStatsPage extends StatefulWidget {
   State<UserStatsPage> createState() => _UserStatsPageState();
 }
 
-class _UserStatsPageState extends State<UserStatsPage> {
+class _UserStatsPageState extends State<UserStatsPage> with RouteAware {
+  bool _initialized = false;
+  bool _isSubscribed = false;
+
   @override
   void initState() {
     super.initState();
 
     // Charger les stats automatiquement
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userStatsBloc = context.read<UserStatsBloc>();
-      // Vérifier si les données sont déjà chargées
-      if (userStatsBloc.state is! UserStatsLoaded) {
-        userStatsBloc.add(const LoadUserStats());
+      if (!_initialized && mounted) {
+        _initialized = true;
+        debugPrint('📊 UserStatsPage: chargement initial');
+        final userStatsBloc = context.read<UserStatsBloc>();
+        // Vérifier si les données sont déjà chargées
+        if (userStatsBloc.state is! UserStatsLoaded) {
+          userStatsBloc.add(const LoadUserStats());
+        }
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Souscrire au RouteObserver pour détecter les retours
+    if (!_isSubscribed) {
+      final modalRoute = ModalRoute.of(context);
+      if (modalRoute is PageRoute) {
+        routeObserver.subscribe(this, modalRoute);
+        _isSubscribed = true;
+        debugPrint('📊 UserStatsPage: souscription au RouteObserver');
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    debugPrint('📊 UserStatsPage: désinscription du RouteObserver');
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Cette méthode est appelée quand on revient sur cette page depuis une sous-page
+    debugPrint('🔄 UserStatsPage: retour détecté, refresh des statistiques');
+    if (mounted) {
+      context.read<UserStatsBloc>().add(const RefreshUserStats());
+    }
   }
 
   @override
@@ -47,11 +85,17 @@ class _UserStatsPageState extends State<UserStatsPage> {
         title: const Text('Mes Statistiques'),
         backgroundColor: primaryColor,
         foregroundColor: colorScheme.onPrimary,
+        automaticallyImplyLeading: false,
       ),
       backgroundColor: colorScheme.background,
       body: BlocConsumer<UserStatsBloc, UserStatsState>(
         listener: (context, state) {
           // Gérer les changements d'état si nécessaire
+          if (state is UserStatsLoaded) {
+            debugPrint('✅ UserStatsPage: statistiques chargées avec succès');
+          } else if (state is UserStatsError) {
+            debugPrint('❌ UserStatsPage: erreur lors du chargement');
+          }
         },
         builder: (context, state) {
           if (state is UserStatsLoading) {
