@@ -3,7 +3,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database
-    database_url: str = "postgresql://codeascend:password@62.171.167.55:9846/codeascend?sslmode=disable"
+    database_url: str = "postgresql://codeascend:password@codeascend-database-kis8l0:5432/codeascend?sslmode=disable"
     
     # JWT
     secret_key: str = "your-secret-key-here"
